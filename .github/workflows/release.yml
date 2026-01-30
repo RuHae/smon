@@ -1,0 +1,35 @@
+name: Build and Release smon
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers only when you push a tag starting with 'v'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to upload assets to the release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.10
+
+      - name: Build binary
+        run: |
+          uv sync
+          # We use the same command from your Makefile
+          uv run pyinstaller --onefile --name smon src/main.py
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/smon
+          body: "Automatic build of smon for Linux."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
