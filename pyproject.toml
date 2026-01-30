@@ -1,0 +1,31 @@
+[project]
+name = "smon"
+version = "0.1.0"
+description = "smon: A high-performance TUI dashboard for Slurm-managed HPC clusters."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Ruben Härle", email = "ruben.harle@gmail.com" }
+]
+keywords = ["hpc", "slurm", "dashboard", "tui", "monitoring", "smon"]
+dependencies = [
+    "rich>=14.3.1",
+    "textual>=7.5.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.18.0",
+]
+
+[project.scripts]
+smon = "main:app.run"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+dev-dependencies = [
+    "pyinstaller>=6.0.0",
+]
