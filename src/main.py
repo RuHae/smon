@@ -335,6 +335,91 @@ class JobDetailScreen(ModalScreen):
         self.dismiss()
 
 
+class ShortcutHelpScreen(ModalScreen):
+    CSS = """
+    ShortcutHelpScreen { align: center middle; background: rgba(0,0,0,0.75); }
+    #help-container { width: 88%; height: 88%; background: $surface; border: solid $accent; padding: 1 2; }
+    #help-content { margin-top: 1; }
+    .header { text-style: bold; color: $accent; border-bottom: solid $accent; width: 100%; }
+    .label { color: $text-muted; text-align: center; width: 100%; margin-top: 1; }
+    """
+
+    def compose(self) -> ComposeResult:
+        def make_table(title: str, rows: list[tuple[str, str]]) -> RichTable:
+            table = RichTable(title=title, box=box.ROUNDED, expand=True)
+            table.add_column("Key", style="bold cyan", no_wrap=True)
+            table.add_column("Action", style="white")
+            for key, action in rows:
+                table.add_row(key, action)
+            return table
+
+        with Container(id="help-container"):
+            yield Label("⌨️ Shortcut Manual", classes="header")
+            with ScrollableContainer(id="help-content"):
+                mode_table = make_table(
+                    "Modes",
+                    [
+                        ("Normal mode", "Default mode for navigation and actions."),
+                        ("Edit mode", "Layout control mode (resize/toggle panes)."),
+                        ("m", "Toggle Normal/Edit mode."),
+                    ],
+                )
+                yield Static(mode_table)
+
+                normal_table = make_table(
+                    "Normal Mode",
+                    [
+                        ("j / k", "Move down/up in the focused table."),
+                        ("h / l", "Scroll jobs table left/right (when Jobs pane is focused)."),
+                        ("Shift+Left / Shift+H", "Focus Nodes pane."),
+                        ("Shift+Right / Shift+L", "Focus Jobs pane."),
+                        ("c", "Toggle compact jobs view."),
+                        ("x / Delete", "Kill selected job."),
+                        ("y", "Copy selected job ID."),
+                        ("Enter", "Open selected job details."),
+                        ("?", "Open/close this manual."),
+                        ("q", "Quit smon."),
+                    ],
+                )
+                yield Static(normal_table)
+
+                edit_table = make_table(
+                    "Edit Mode",
+                    [
+                        ("h / Left", "Narrow nodes pane width."),
+                        ("l / Right", "Widen nodes pane width."),
+                        ("n", "Toggle nodes-only view."),
+                        ("j", "Toggle jobs-only view."),
+                        ("v", "Reset split view and default width."),
+                        ("Shift+Left / Shift+H", "Focus Nodes pane."),
+                        ("Shift+Right / Shift+L", "Focus Jobs pane."),
+                        ("m / Esc", "Return to normal mode."),
+                    ],
+                )
+                yield Static(edit_table)
+
+            yield Label("[Press ? or ESC to close]", classes="label")
+
+    def key_escape(self):
+        self.dismiss()
+
+    def key_question_mark(self):
+        self.dismiss()
+
+    def on_mount(self):
+        # Focus scroll area so keyboard scrolling works immediately on open.
+        self.query_one("#help-content", ScrollableContainer).focus()
+
+    def on_key(self, event):
+        content = self.query_one("#help-content", ScrollableContainer)
+        if event.key in ("j", "down"):
+            content.scroll_down(animate=False)
+            event.stop()
+        elif event.key in ("k", "up"):
+            content.scroll_up(animate=False)
+            event.stop()
+
+
 # --- MAIN APP ---
 
 
@@ -410,19 +495,109 @@ class SlurmDashboard(App):
     
     .pane-header { text-align: center; text-style: bold; background: $panel; color: $text; padding: 0 1; width: 100%; border-bottom: solid $accent; }
     DataTable { height: 100%; scrollbar-gutter: stable; }
+
+    #statusline {
+        height: 1;
+        width: 100%;
+        layout: horizontal;
+        background: $footer-background;
+        color: $footer-foreground;
+    }
+
+    #mode-pill {
+        width: auto;
+        height: 1;
+        min-width: 8;
+        padding: 0 1;
+        content-align: center middle;
+        text-style: bold;
+        background: #1e3a8a;
+        color: #dbeafe;
+    }
+
+    #status-footer {
+        width: 1fr;
+        height: 1;
+        dock: none;
+    }
+
+    #status-footer FooterKey {
+        background: transparent;
+    }
+
+    #status-footer FooterLabel {
+        background: transparent;
+    }
+
+    SlurmDashboard.-mode-normal #mode-pill {
+        background: #1e3a8a;
+        color: #dbeafe;
+    }
+
+    SlurmDashboard.-mode-normal #statusline,
+    SlurmDashboard.-mode-normal #status-footer,
+    SlurmDashboard.-mode-normal #status-footer FooterKey,
+    SlurmDashboard.-mode-normal #status-footer FooterLabel {
+        background: #334155;
+        color: #e2e8f0;
+    }
+
+    SlurmDashboard.-mode-normal #status-footer FooterKey .footer-key--key {
+        background: #1e3a8a;
+        color: #dbeafe;
+    }
+
+    SlurmDashboard.-mode-normal #status-footer FooterKey .footer-key--description {
+        background: #334155;
+        color: #e2e8f0;
+    }
+
+    SlurmDashboard.-mode-toggle #mode-pill {
+        background: #f59e0b;
+        color: #1f2937;
+    }
+
+    SlurmDashboard.-mode-toggle #statusline,
+    SlurmDashboard.-mode-toggle #status-footer,
+    SlurmDashboard.-mode-toggle #status-footer FooterKey,
+    SlurmDashboard.-mode-toggle #status-footer FooterLabel {
+        background: #7c2d12;
+        color: #ffedd5;
+    }
+
+    SlurmDashboard.-mode-toggle #status-footer FooterKey .footer-key--key {
+        background: #f59e0b;
+        color: #1f2937;
+    }
+
+    SlurmDashboard.-mode-toggle #status-footer FooterKey .footer-key--description {
+        background: #7c2d12;
+        color: #ffedd5;
+    }
     """
 
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("r", "refresh_now", "Refresh"),
         ("c", "toggle_compact", "Compact"),
-        ("k", "kill_job", "Kill Job"),
+        ("m", "toggle_mode", "Mode"),
+        ("question_mark", "show_help", "Help"),
+        ("shift+left", "focus_nodes_pane", "Focus Nodes"),
+        ("shift+right", "focus_jobs_pane", "Focus Jobs"),
+        ("shift+h", "focus_nodes_pane", "Focus Nodes"),
+        ("shift+l", "focus_jobs_pane", "Focus Jobs"),
+        ("x", "kill_job", "Kill Job"),
         ("delete", "kill_job", "Kill Job"),
         ("y", "copy_job_id", "Copy ID"),  # Key to copy
         ("copy", "copy_job_id", "Copy ID"),
     ]
 
+    DEFAULT_NODE_PANE_WIDTH = 42
+    MIN_NODE_PANE_WIDTH = 24
+    PANE_RESIZE_STEP = 4
     show_compact = reactive(False)
+    pane_mode = "split"
+    node_pane_width = DEFAULT_NODE_PANE_WIDTH
+    key_mode = "normal"  # normal, toggle
 
     def compose(self) -> ComposeResult:
         yield Branding()
@@ -435,28 +610,124 @@ class SlurmDashboard(App):
                 yield Label("📊 ACTIVE JOBS", classes="pane-header")
                 with Container(id="job-scroll-wrapper"):
                     yield DataTable(id="job_table", cursor_type="row")
-        yield Footer()
+        with Horizontal(id="statusline"):
+            yield Static(" NORMAL ", id="mode-pill")
+            yield Footer(id="status-footer")
 
     def on_mount(self) -> None:
         self.title = "Slurm Dashboard"
+        self.pane_mode = "split"  # split, nodes, jobs
+        self.node_pane_width = self.DEFAULT_NODE_PANE_WIDTH
+
         node_table = self.query_one("#node_table", DataTable)
         node_table.add_columns("Node", "State", "CPU", "Mem", "GPU")
         node_table.zebra_stripes = True
 
         self.query_one("#job_table", DataTable).focus()
+        self._apply_mode_visual_state()
+        self.apply_pane_layout()
         self.set_interval(REFRESH_RATE, self.update_data)
         self.update_data()
 
-    # --- CUSTOM KEY HANDLER FOR SCROLLING ---
+    def on_resize(self, event) -> None:
+        # Re-apply split sizing so panes stay usable after terminal resize.
+        if getattr(self, "pane_mode", "split") == "split":
+            self.apply_pane_layout()
+
+    def apply_pane_layout(self) -> None:
+        node_pane = self.query_one("#node-pane", Vertical)
+        job_pane = self.query_one("#job-pane", Vertical)
+        node_table = self.query_one("#node_table", DataTable)
+        job_table = self.query_one("#job_table", DataTable)
+
+        if self.pane_mode == "nodes":
+            node_pane.display = True
+            job_pane.display = False
+            node_pane.styles.width = "1fr"
+            node_table.focus()
+            return
+
+        if self.pane_mode == "jobs":
+            node_pane.display = False
+            job_pane.display = True
+            job_pane.styles.width = "1fr"
+            job_table.focus()
+            return
+
+        # split mode
+        max_nodes = max(self.MIN_NODE_PANE_WIDTH, self.size.width - 40)
+        self.node_pane_width = max(
+            self.MIN_NODE_PANE_WIDTH, min(self.node_pane_width, max_nodes)
+        )
+        node_pane.display = True
+        job_pane.display = True
+        node_pane.styles.width = self.node_pane_width
+        job_pane.styles.width = "1fr"
+
+    # --- CUSTOM KEY HANDLER FOR VIM NAV + LAYOUT MODE ---
     def on_key(self, event):
-        """Intercept arrow keys to scroll the wrapper instead of the table cells."""
-        if self.query_one("#job_table").has_focus:
+        """Enable vim navigation in normal mode and pane control in toggle mode."""
+        if event.character == "?":
+            self.action_show_help()
+            event.stop()
+            return
+
+        if event.character == "H":
+            self.action_focus_nodes_pane()
+            event.stop()
+            return
+
+        if event.character == "L":
+            self.action_focus_jobs_pane()
+            event.stop()
+            return
+
+        if self.key_mode == "toggle":
+            if event.key in ("m", "escape"):
+                self._set_key_mode("normal")
+                event.stop()
+            elif event.key in ("h", "left"):
+                self.action_narrow_nodes_pane()
+                event.stop()
+            elif event.key in ("l", "right"):
+                self.action_widen_nodes_pane()
+                event.stop()
+            elif event.key == "n":
+                self.action_toggle_nodes_only()
+                event.stop()
+            elif event.key == "j":
+                self.action_toggle_jobs_only()
+                event.stop()
+            elif event.key == "v":
+                self.action_reset_panes()
+                event.stop()
+            return
+
+        job_table = self.query_one("#job_table", DataTable)
+        node_table = self.query_one("#node_table", DataTable)
+
+        if job_table.has_focus:
             wrapper = self.query_one("#job-scroll-wrapper")
-            if event.key == "left":
+            if event.key in ("left", "h"):
                 wrapper.scroll_left(animate=False)
-                event.stop()  # Stop DataTable from consuming the key
-            elif event.key == "right":
+                event.stop()
+            elif event.key in ("right", "l"):
                 wrapper.scroll_right(animate=False)
+                event.stop()
+            elif event.key == "j":
+                job_table.action_cursor_down()
+                event.stop()
+            elif event.key == "k":
+                job_table.action_cursor_up()
+                event.stop()
+            return
+
+        if node_table.has_focus:
+            if event.key == "j":
+                node_table.action_cursor_down()
+                event.stop()
+            elif event.key == "k":
+                node_table.action_cursor_up()
                 event.stop()
 
     # --- ACTIONS ---
@@ -482,7 +753,6 @@ class SlurmDashboard(App):
 
             # Use OSC 52
             copy_to_clipboard(job_id)
-            self.notify(f"Copied Job ID: {job_id}", title="Clipboard")
         except Exception as e:
             self.notify(f"Clipboard Error: {e}", severity="error")
 
@@ -503,8 +773,7 @@ class SlurmDashboard(App):
             def handle_kill_response(confirmed: bool):
                 if confirmed:
                     try:
-                        res = subprocess.getoutput(f"scancel {job_id}")
-                        self.notify(f"Executed: scancel {job_id}")
+                        subprocess.getoutput(f"scancel {job_id}")
                         self.update_data()
                     except Exception as e:
                         self.notify(f"Error: {e}", severity="error")
@@ -549,12 +818,70 @@ class SlurmDashboard(App):
                 "Submit",
             )
 
-    def action_refresh_now(self):
-        self.update_data()
-
     def action_toggle_compact(self):
         self.show_compact = not self.show_compact
-        self.notify(f"Compact Mode: {'ON' if self.show_compact else 'OFF'}")
+
+    def _apply_mode_visual_state(self) -> None:
+        mode_pill = self.query_one("#mode-pill", Static)
+        mode_pill.update(" EDIT " if self.key_mode == "toggle" else " NORMAL ")
+        self.set_class(self.key_mode == "toggle", "-mode-toggle")
+        self.set_class(self.key_mode == "normal", "-mode-normal")
+
+    def _set_key_mode(self, mode: str) -> None:
+        self.key_mode = mode
+        self._apply_mode_visual_state()
+
+    def action_toggle_mode(self):
+        next_mode = "normal" if self.key_mode == "toggle" else "toggle"
+        self._set_key_mode(next_mode)
+
+    def action_show_help(self):
+        if isinstance(self.screen, ShortcutHelpScreen):
+            self.pop_screen()
+            return
+        self.push_screen(ShortcutHelpScreen())
+
+    def action_focus_nodes_pane(self):
+        if self.pane_mode == "jobs":
+            self.pane_mode = "split"
+            self.apply_pane_layout()
+        self.query_one("#node_table", DataTable).focus()
+
+    def action_focus_jobs_pane(self):
+        if self.pane_mode == "nodes":
+            self.pane_mode = "split"
+            self.apply_pane_layout()
+        self.query_one("#job_table", DataTable).focus()
+
+    def action_narrow_nodes_pane(self):
+        if self.pane_mode != "split":
+            return
+        self.node_pane_width = max(
+            self.MIN_NODE_PANE_WIDTH, self.node_pane_width - self.PANE_RESIZE_STEP
+        )
+        self.apply_pane_layout()
+
+    def action_widen_nodes_pane(self):
+        if self.pane_mode != "split":
+            return
+        max_nodes = max(self.MIN_NODE_PANE_WIDTH, self.size.width - 40)
+        self.node_pane_width = min(
+            max_nodes, self.node_pane_width + self.PANE_RESIZE_STEP
+        )
+        self.apply_pane_layout()
+
+    def action_toggle_nodes_only(self):
+        self.pane_mode = "split" if self.pane_mode == "nodes" else "nodes"
+        self.apply_pane_layout()
+
+    def action_toggle_jobs_only(self):
+        self.pane_mode = "split" if self.pane_mode == "jobs" else "jobs"
+        self.apply_pane_layout()
+
+    def action_reset_panes(self):
+        self.pane_mode = "split"
+        self.node_pane_width = self.DEFAULT_NODE_PANE_WIDTH
+        self.apply_pane_layout()
 
     def update_data(self):
         nodes, theo, real = get_cluster_stats()
