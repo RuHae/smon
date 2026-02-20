@@ -21,15 +21,58 @@ jobs:
         run: uv python install 3.10
 
       - name: Build binary
+        run: make build
+
+      - name: Generate release notes from CHANGELOG
         run: |
-          uv sync
-          # We use the same command from your Makefile
-          uv run pyinstaller --onefile --name smon src/main.py
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Preparing release notes for v${VERSION}"
+
+          if [ ! -f CHANGELOG.md ]; then
+            echo "ERROR: CHANGELOG.md is missing."
+            exit 1
+          fi
+
+          set +e
+          awk -v version="$VERSION" '
+            BEGIN { in_section=0; found=0 }
+            $0 ~ "^## \\[" version "\\]" { in_section=1; found=1; next }
+            in_section && $0 ~ "^## " { exit }
+            in_section { print }
+            END {
+              if (!found) {
+                exit 2
+              }
+            }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          status=$?
+          set -e
+
+          if [ "$status" -eq 2 ]; then
+            echo "ERROR: No CHANGELOG section found for version ${VERSION}."
+            echo "Add a section like: ## [${VERSION}]"
+            exit 1
+          elif [ "$status" -ne 0 ]; then
+            echo "ERROR: Failed to parse CHANGELOG.md"
+            exit "$status"
+          fi
+
+          # Ensure section is not empty/whitespace-only.
+          if ! grep -q '[^[:space:]]' RELEASE_NOTES.md; then
+            echo "ERROR: CHANGELOG section for ${VERSION} is empty."
+            exit 1
+          fi
+
+          {
+            echo "## smon v${VERSION}"
+            echo
+            cat RELEASE_NOTES.md
+          } > RELEASE_BODY.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/smon
-          body: "Automatic build of smon for Linux."
+          body_path: RELEASE_BODY.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
