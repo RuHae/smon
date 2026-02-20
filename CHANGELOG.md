@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-20
+
 ### Added
 - Bottom vim-style statusline with persistent mode indicator (`NORMAL` / `EDIT`).
 - Keyboard shortcut manual (`?`) with immediate focus and vim/arrow scrolling.
@@ -21,7 +23,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - PyInstaller build now includes Rich unicode data submodules for standalone binary runtime.
 - Removed duplicate `main.py` app block and kept one canonical app definition/entrypoint.
 
-## [0.1.0] - 2026-02-20
+## [0.1.0] - 2026-01-30
 
 ### Added
 - Initial `smon` release.
+
+[Unreleased]: https://github.com/RuHae/smon/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/RuHae/smon/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/RuHae/smon/releases/tag/v0.1.0
