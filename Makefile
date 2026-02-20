@@ -8,7 +8,7 @@ all: clean build
 
 build:
 	uv sync
-	uv run pyinstaller --onefile --name $(BINARY_NAME) $(SRC)
+	uv run pyinstaller --onefile --name $(BINARY_NAME) --collect-submodules rich._unicode_data $(SRC)
 
 deploy: all
 	mkdir -p ~/.local/bin
