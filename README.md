@@ -8,6 +8,7 @@
 
 ## ✨ Features
 - Live node and job dashboard with CPU, memory, and GPU usage.
+- Interactive job filtering by user and job-name prefix.
 - Job detail modal (`scontrol` + live `sstat` when running).
 - Safe kill flow with confirmation.
 - Bottom statusline with persistent `NORMAL` / `EDIT` mode indicator (vim-style).
@@ -68,6 +69,8 @@ SMON_FAKE_DATA=1 uv run python src/main.py
 | `Shift+Left` / `Shift+H` | Focus Nodes pane |
 | `Shift+Right` / `Shift+L` | Focus Jobs pane |
 | `c` | Toggle compact jobs table |
+| `/` | Open job filter dialog |
+| `z` | Clear all active job filters |
 | `x` / `Delete` | Kill selected job (with confirmation) |
 | `y` | Copy selected job ID |
 | `Enter` | Open job details |
@@ -88,6 +91,16 @@ SMON_FAKE_DATA=1 uv run python src/main.py
 
 ---
 
+## 🔎 Filtering Jobs
+- Press `/` to open the job filter dialog.
+- `User` filter is exact-match and case-insensitive.
+- `Name prefix` filter matches job names that start with the prefix (case-insensitive).
+- If both fields are set, matching uses **AND**.
+- Active filters persist across auto-refresh until cleared.
+- Press `z` for a quick clear-all reset.
+
+---
+
 ## 📋 Clipboard Support
 For `y` (copy job ID) over SSH, your terminal must support OSC 52.
 
@@ -99,7 +112,7 @@ For `y` (copy job ID) over SSH, your terminal must support OSC 52.
 ## 🏗 Project Structure
 - `src/main.py`: thin entrypoint (`SlurmDashboard` launcher).
 - `src/smon_dashboard.py`: main Textual dashboard app and layout/actions.
-- `src/smon_screens.py`: modal screens (help, job detail, kill confirmation).
+- `src/smon_screens.py`: modal screens (help, job detail, kill confirmation, job filter).
 - `src/slurm_backend.py`: Slurm command execution and output parsing.
 - `src/smon_config.py`: runtime configuration (`SMON_FAKE_DATA`, refresh, title).
 - `src/smon_clipboard.py`: OSC52/local clipboard helper.

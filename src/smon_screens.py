@@ -7,7 +7,7 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.screen import ModalScreen
-from textual.widgets import Button, Label, Static
+from textual.widgets import Button, Input, Label, Static
 
 from slurm_backend import get_job_details
 
@@ -125,6 +125,66 @@ class JobDetailScreen(ModalScreen):
         self.dismiss()
 
 
+class JobFilterScreen(ModalScreen[dict[str, str] | None]):
+    CSS = """
+    JobFilterScreen { align: center middle; background: rgba(0,0,0,0.72); }
+    #filter-dialog { width: 74; height: auto; background: $surface; border: solid $accent; padding: 1 2; }
+    .header { text-style: bold; color: $accent; border-bottom: solid $accent; width: 100%; margin-bottom: 1; }
+    .hint { color: $text-muted; margin-bottom: 1; width: 100%; }
+    .field-label { text-style: bold; margin-top: 1; width: 100%; }
+    #button-row { align: center middle; height: auto; width: 100%; margin-top: 2; }
+    Button { margin: 0 1; }
+    .label { color: $text-muted; text-align: center; width: 100%; margin-top: 1; }
+    """
+
+    def __init__(self, current_user: str = "", current_prefix: str = ""):
+        super().__init__()
+        self.current_user = current_user
+        self.current_prefix = current_prefix
+
+    def compose(self) -> ComposeResult:
+        with Container(id="filter-dialog"):
+            yield Label("🔎 Job Filter", classes="header")
+            yield Label(
+                "Case-insensitive matching. User + prefix filters are combined with AND.",
+                classes="hint",
+            )
+            yield Label("User (exact)", classes="field-label")
+            yield Input(value=self.current_user, id="filter-user-input")
+            yield Label("Name prefix (starts with)", classes="field-label")
+            yield Input(value=self.current_prefix, id="filter-prefix-input")
+            with Horizontal(id="button-row"):
+                yield Button("Apply", variant="primary", id="apply")
+                yield Button("Clear", variant="warning", id="clear")
+                yield Button("Cancel", id="cancel")
+            yield Label("[Enter apply • Esc cancel]", classes="label")
+
+    def on_mount(self) -> None:
+        self.query_one("#filter-user-input", Input).focus()
+
+    def _collect_filters(self) -> dict[str, str]:
+        user_value = self.query_one("#filter-user-input", Input).value.strip()
+        prefix_value = self.query_one("#filter-prefix-input", Input).value.strip()
+        return {"user": user_value, "prefix": prefix_value}
+
+    def _apply(self) -> None:
+        self.dismiss(self._collect_filters())
+
+    def key_enter(self) -> None:
+        self._apply()
+
+    def key_escape(self) -> None:
+        self.dismiss(None)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "apply":
+            self._apply()
+        elif event.button.id == "clear":
+            self.dismiss({"user": "", "prefix": ""})
+        else:
+            self.dismiss(None)
+
+
 class ShortcutHelpScreen(ModalScreen):
     CSS = """
     ShortcutHelpScreen { align: center middle; background: rgba(0,0,0,0.75); }
@@ -151,6 +211,7 @@ class ShortcutHelpScreen(ModalScreen):
                     [
                         ("Normal mode", "Default mode for navigation and actions."),
                         ("Edit mode", "Layout control mode (resize/toggle panes)."),
+                        ("Filters", "Use / to filter jobs by user and name prefix."),
                         ("m", "Toggle Normal/Edit mode."),
                     ],
                 )
@@ -167,6 +228,8 @@ class ShortcutHelpScreen(ModalScreen):
                         ("Shift+Left / Shift+H", "Focus Nodes pane."),
                         ("Shift+Right / Shift+L", "Focus Jobs pane."),
                         ("c", "Toggle compact jobs view."),
+                        ("/", "Open job filter dialog (user and name prefix)."),
+                        ("z", "Clear all active job filters."),
                         ("x / Delete", "Kill selected job."),
                         ("y", "Copy selected job ID."),
                         ("Enter", "Open selected job details."),
@@ -190,6 +253,16 @@ class ShortcutHelpScreen(ModalScreen):
                     ],
                 )
                 yield Static(edit_table)
+                filter_table = make_table(
+                    "Filters",
+                    [
+                        ("User filter", "Exact user match (case-insensitive)."),
+                        ("Name prefix", "Job name starts-with match (case-insensitive)."),
+                        ("Combination", "Both fields are combined with AND."),
+                        ("Persistence", "Filters stay active across auto-refresh."),
+                    ],
+                )
+                yield Static(filter_table)
 
             yield Label("[Press ? or ESC to close]", classes="label")
 

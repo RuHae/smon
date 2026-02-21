@@ -18,7 +18,12 @@ from slurm_backend import (
 )
 from smon_clipboard import copy_to_clipboard
 from smon_config import CLUSTER_NAME, DASHBOARD_TITLE, REFRESH_RATE
-from smon_screens import JobDetailScreen, KillConfirmationScreen, ShortcutHelpScreen
+from smon_screens import (
+    JobDetailScreen,
+    JobFilterScreen,
+    KillConfirmationScreen,
+    ShortcutHelpScreen,
+)
 
 
 class Branding(Static):
@@ -113,6 +118,15 @@ class SlurmDashboard(App):
         color: #dbeafe;
     }
 
+    #filter-pill {
+        width: auto;
+        height: 1;
+        min-width: 14;
+        padding: 0 1;
+        content-align: center middle;
+        text-style: bold;
+    }
+
     #status-footer {
         width: 1fr;
         height: 1;
@@ -150,6 +164,16 @@ class SlurmDashboard(App):
         color: #e2e8f0;
     }
 
+    SlurmDashboard.-mode-normal.-filter-inactive #filter-pill {
+        background: #1f2937;
+        color: #9ca3af;
+    }
+
+    SlurmDashboard.-mode-normal.-filter-active #filter-pill {
+        background: #0f766e;
+        color: #ccfbf1;
+    }
+
     SlurmDashboard.-mode-toggle #mode-pill {
         background: #f59e0b;
         color: #1f2937;
@@ -172,17 +196,25 @@ class SlurmDashboard(App):
         background: #7c2d12;
         color: #ffedd5;
     }
+
+    SlurmDashboard.-mode-toggle.-filter-inactive #filter-pill {
+        background: #92400e;
+        color: #ffedd5;
+    }
+
+    SlurmDashboard.-mode-toggle.-filter-active #filter-pill {
+        background: #facc15;
+        color: #1f2937;
+    }
     """
 
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("c", "toggle_compact", "Compact"),
+        ("/", "show_filter", "Filter"),
+        ("z", "clear_filters", "Clear Filter"),
         ("m", "toggle_mode", "Mode"),
         ("question_mark", "show_help", "Help"),
-        ("shift+left", "focus_nodes_pane", "Focus Nodes"),
-        ("shift+right", "focus_jobs_pane", "Focus Jobs"),
-        ("shift+h", "focus_nodes_pane", "Focus Nodes"),
-        ("shift+l", "focus_jobs_pane", "Focus Jobs"),
         ("x", "kill_job", "Kill Job"),
         ("delete", "kill_job", "Kill Job"),
         ("y", "copy_job_id", "Copy ID"),
@@ -196,6 +228,8 @@ class SlurmDashboard(App):
     pane_mode = "split"
     node_pane_width = DEFAULT_NODE_PANE_WIDTH
     key_mode = "normal"  # normal, toggle
+    job_filter_user = ""
+    job_filter_prefix = ""
 
     def compose(self) -> ComposeResult:
         yield Branding()
@@ -210,6 +244,7 @@ class SlurmDashboard(App):
                     yield DataTable(id="job_table", cursor_type="row")
         with Horizontal(id="statusline"):
             yield Static(" NORMAL ", id="mode-pill")
+            yield Static(" FILTER: OFF ", id="filter-pill")
             yield Footer(id="status-footer")
 
     def on_mount(self) -> None:
@@ -223,6 +258,7 @@ class SlurmDashboard(App):
 
         self.query_one("#job_table", DataTable).focus()
         self._apply_mode_visual_state()
+        self._update_filter_pill(total_jobs=0, visible_jobs=0)
         self.apply_pane_layout()
         self.set_interval(REFRESH_RATE, self.update_data)
         self.update_data()
@@ -264,6 +300,26 @@ class SlurmDashboard(App):
         """Enable vim navigation in normal mode and pane control in toggle mode."""
         if event.character == "?":
             self.action_show_help()
+            event.stop()
+            return
+
+        if event.character == "/":
+            self.action_show_filter()
+            event.stop()
+            return
+
+        if event.key == "z":
+            self.action_clear_filters()
+            event.stop()
+            return
+
+        if event.key == "shift+left":
+            self.action_focus_nodes_pane()
+            event.stop()
+            return
+
+        if event.key == "shift+right":
+            self.action_focus_jobs_pane()
             event.stop()
             return
 
@@ -410,6 +466,56 @@ class SlurmDashboard(App):
     def action_toggle_compact(self):
         self.show_compact = not self.show_compact
 
+    def _filters_enabled(self) -> bool:
+        return bool(self.job_filter_user or self.job_filter_prefix)
+
+    def _filter_jobs(self, jobs: list[dict]) -> list[dict]:
+        if not self._filters_enabled():
+            return jobs
+
+        user_filter = self.job_filter_user.casefold()
+        prefix_filter = self.job_filter_prefix.casefold()
+        filtered_jobs: list[dict] = []
+
+        for job in jobs:
+            user_matches = True
+            prefix_matches = True
+
+            if user_filter:
+                user_matches = str(job.get("user", "")).casefold() == user_filter
+
+            if prefix_filter:
+                job_name = str(job.get("name", "")).casefold()
+                prefix_matches = job_name.startswith(prefix_filter)
+
+            if user_matches and prefix_matches:
+                filtered_jobs.append(job)
+
+        return filtered_jobs
+
+    def _build_filter_status(self, total_jobs: int, visible_jobs: int) -> str:
+        if not self._filters_enabled():
+            return " FILTER: OFF "
+
+        tokens = []
+        if self.job_filter_user:
+            tokens.append(f"U={self.job_filter_user}")
+        if self.job_filter_prefix:
+            tokens.append(f"N^={self.job_filter_prefix}")
+        filter_text = " ".join(tokens)
+        if len(filter_text) > 33:
+            filter_text = f"{filter_text[:30]}..."
+        return f" {filter_text} ({visible_jobs}/{total_jobs}) "
+
+    def _apply_filter_visual_state(self, active: bool) -> None:
+        self.set_class(active, "-filter-active")
+        self.set_class(not active, "-filter-inactive")
+
+    def _update_filter_pill(self, total_jobs: int, visible_jobs: int) -> None:
+        filter_pill = self.query_one("#filter-pill", Static)
+        filter_pill.update(self._build_filter_status(total_jobs, visible_jobs))
+        self._apply_filter_visual_state(self._filters_enabled())
+
     def _apply_mode_visual_state(self) -> None:
         mode_pill = self.query_one("#mode-pill", Static)
         mode_pill.update(" EDIT " if self.key_mode == "toggle" else " NORMAL ")
@@ -429,6 +535,29 @@ class SlurmDashboard(App):
             self.pop_screen()
             return
         self.push_screen(ShortcutHelpScreen())
+
+    def action_show_filter(self):
+        def handle_filter_response(result: dict[str, str] | None):
+            if result is None:
+                return
+            self.job_filter_user = result.get("user", "").strip()
+            self.job_filter_prefix = result.get("prefix", "").strip()
+            self.update_data()
+
+        self.push_screen(
+            JobFilterScreen(
+                current_user=self.job_filter_user,
+                current_prefix=self.job_filter_prefix,
+            ),
+            handle_filter_response,
+        )
+
+    def action_clear_filters(self):
+        if not self._filters_enabled():
+            return
+        self.job_filter_user = ""
+        self.job_filter_prefix = ""
+        self.update_data()
 
     def action_focus_nodes_pane(self):
         if self.pane_mode == "jobs":
@@ -475,8 +604,12 @@ class SlurmDashboard(App):
     def update_data(self):
         nodes, theo, real = get_cluster_stats()
         jobs = get_job_stats()
+        total_jobs = len(jobs)
+        jobs = self._filter_jobs(jobs)
+        visible_jobs = len(jobs)
 
         self.query_one(ClusterBars).update_bars(theo, real)
+        self._update_filter_pill(total_jobs=total_jobs, visible_jobs=visible_jobs)
 
         n_table = self.query_one("#node_table", DataTable)
         n_scroll, n_cursor = n_table.scroll_y, n_table.cursor_coordinate
@@ -499,7 +632,12 @@ class SlurmDashboard(App):
                 Text.from_markup(f"{g_style}{node['g_u']}[/]/[dim]{node['g_t']}[/]"),
             )
         n_table.scroll_y = n_scroll
-        n_table.move_cursor(row=n_cursor.row, column=n_cursor.column, animate=False)
+        if n_table.row_count > 0:
+            n_table.move_cursor(
+                row=min(max(n_cursor.row, 0), n_table.row_count - 1),
+                column=min(max(n_cursor.column, 0), len(n_table.columns) - 1),
+                animate=False,
+            )
 
         j_wrapper = self.query_one("#job-scroll-wrapper")
         j_table = self.query_one("#job_table", DataTable)
@@ -545,4 +683,9 @@ class SlurmDashboard(App):
 
         j_table.scroll_y = j_scroll_y
         j_wrapper.scroll_x = j_scroll_x
-        j_table.move_cursor(row=j_cursor.row, column=j_cursor.column, animate=False)
+        if j_table.row_count > 0:
+            j_table.move_cursor(
+                row=min(max(j_cursor.row, 0), j_table.row_count - 1),
+                column=min(max(j_cursor.column, 0), len(j_table.columns) - 1),
+                animate=False,
+            )

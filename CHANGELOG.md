@@ -7,12 +7,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+- Interactive job filtering in the jobs pane by exact user and job-name prefix, with case-insensitive AND matching.
+- Filter dialog (`/`) to set user and prefix filters, plus quick clear (`z`).
+- Bottom statusline filter pill showing active filter state and visible/total job counts.
+
 ### Changed
 - chore: add a dedicated fake Slurm fixture backend, GPU-heavy demo dataset, and deterministic screenshot generation for README/docs.
 - Refactor the TUI from a single-file layout into focused modules:
   `main.py` (entrypoint), `smon_dashboard.py`, `smon_screens.py`, `slurm_backend.py`, `smon_clipboard.py`, and `smon_config.py`.
 - Simplify imports by removing conditional fallback imports and standardizing on one module import path.
 - Keep runtime behavior unchanged while improving maintainability and navigation in the codebase.
+- Updated the shortcut manual and README to document filter controls and matching behavior.
+- Removed filter field placeholders and reduced footer clutter by hiding pane-focus shift bindings from the bottom key hint bar while keeping the shortcuts functional.
 
 ## [0.2.0] - 2026-02-20
 
