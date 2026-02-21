@@ -1,12 +1,8 @@
+![smon dashboard screenshot](docs/smon-screenshot.svg)
+
 # 🚀 smon (Slurm Monitor)
 
 **smon** is a real-time Terminal UI for monitoring Slurm clusters, focused on fast navigation and job operations directly from SSH sessions.
-
----
-
-## 📸 Screenshot
-![smon dashboard screenshot](docs/smon-screenshot.svg)
-_Rendered with fake demo data (no real user/job information)._
 
 ---
 
@@ -118,11 +114,3 @@ For `y` (copy job ID) over SSH, your terminal must support OSC 52.
 - `make build`: sync dependencies and build standalone binary with PyInstaller.
 - `make deploy`: clean, build, and copy binary to `~/.local/bin/smon`.
 - `make clean`: remove build artifacts (`build`, `dist`, `*.spec`).
-
----
-
-## 📝 Changelog & Releases
-- Changes are tracked in `CHANGELOG.md`.
-- Before creating a release tag (for example `v0.2.0`), add a matching changelog section:
-  - `## [0.2.0]`
-- The GitHub release workflow reads that section and uses it as release notes.
