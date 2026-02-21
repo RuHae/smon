@@ -9,6 +9,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 - chore: add a dedicated fake Slurm fixture backend, GPU-heavy demo dataset, and deterministic screenshot generation for README/docs.
+- Refactor the TUI from a single-file layout into focused modules:
+  `main.py` (entrypoint), `smon_dashboard.py`, `smon_screens.py`, `slurm_backend.py`, `smon_clipboard.py`, and `smon_config.py`.
+- Simplify imports by removing conditional fallback imports and standardizing on one module import path.
+- Keep runtime behavior unchanged while improving maintainability and navigation in the codebase.
 
 ## [0.2.0] - 2026-02-20
 
