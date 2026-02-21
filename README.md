@@ -101,7 +101,12 @@ For `y` (copy job ID) over SSH, your terminal must support OSC 52.
 ---
 
 ## 🏗 Project Structure
-- `src/main.py`: main Textual application.
+- `src/main.py`: thin entrypoint (`SlurmDashboard` launcher).
+- `src/smon_dashboard.py`: main Textual dashboard app and layout/actions.
+- `src/smon_screens.py`: modal screens (help, job detail, kill confirmation).
+- `src/slurm_backend.py`: Slurm command execution and output parsing.
+- `src/smon_config.py`: runtime configuration (`SMON_FAKE_DATA`, refresh, title).
+- `src/smon_clipboard.py`: OSC52/local clipboard helper.
 - `src/fake_slurm_fixtures.py`: demo fixture backend for fake Slurm data (`SMON_FAKE_DATA=1`).
 - `pyproject.toml`: project metadata and dependencies.
 - `Makefile`: build/deploy automation.

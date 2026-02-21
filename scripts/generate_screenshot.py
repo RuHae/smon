@@ -14,10 +14,10 @@ os.environ["PY_COLORS"] = "1"
 os.environ["SMON_FAKE_DATA"] = "1"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from rich.terminal_theme import MONOKAI  # noqa: E402
-from src.main import SlurmDashboard  # noqa: E402
+from main import SlurmDashboard  # noqa: E402
 
 
 async def _capture() -> None:
