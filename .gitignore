@@ -11,6 +11,7 @@ uv.lock
 build/
 dist/
 *.spec
+*.egg-info/
 
 # IDEs
 .vscode/

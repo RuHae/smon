@@ -4,6 +4,12 @@
 
 ---
 
+## 📸 Screenshot
+![smon dashboard screenshot](docs/smon-screenshot.svg)
+_Rendered with fake demo data (no real user/job information)._
+
+---
+
 ## ✨ Features
 - Live node and job dashboard with CPU, memory, and GPU usage.
 - Job detail modal (`scontrol` + live `sstat` when running).
@@ -38,7 +44,20 @@ Build only:
 make build
 ```
 
+Generate the README screenshot with colorful fake data:
+
+```bash
+make screenshot
+```
+
 Note: Ensure `~/.local/bin` is in your `PATH`.
+
+### Demo mode (fake Slurm data)
+Run smon without querying real Slurm commands:
+
+```bash
+SMON_FAKE_DATA=1 uv run python src/main.py
+```
 
 ---
 
@@ -83,6 +102,7 @@ For `y` (copy job ID) over SSH, your terminal must support OSC 52.
 
 ## 🏗 Project Structure
 - `src/main.py`: main Textual application.
+- `src/fake_slurm_fixtures.py`: demo fixture backend for fake Slurm data (`SMON_FAKE_DATA=1`).
 - `pyproject.toml`: project metadata and dependencies.
 - `Makefile`: build/deploy automation.
 - `dist/smon`: generated standalone binary after `make build`.

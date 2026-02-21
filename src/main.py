@@ -20,7 +20,25 @@ import os
 import shutil
 
 # --- CONFIGURATION ---
-CLUSTER_NAME = subprocess.getoutput("hostname").upper()
+
+def _is_truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+USE_FAKE_DATA = _is_truthy(os.environ.get("SMON_FAKE_DATA"))
+
+
+def _get_cluster_name() -> str:
+    if USE_FAKE_DATA:
+        try:
+            from .fake_slurm_fixtures import get_fake_cluster_name
+        except ImportError:
+            from fake_slurm_fixtures import get_fake_cluster_name
+        return get_fake_cluster_name()
+    return subprocess.getoutput("hostname").upper()
+
+
+CLUSTER_NAME = _get_cluster_name()
 DASHBOARD_TITLE = "🚀 HPC CLUSTER MONITOR"
 REFRESH_RATE = 2.0
 
@@ -74,11 +92,26 @@ def copy_to_clipboard(text):
 
 
 # --- DATA FETCHING ---
+if USE_FAKE_DATA:
+    try:
+        from .fake_slurm_fixtures import run_fake_slurm_command
+    except ImportError:
+        from fake_slurm_fixtures import run_fake_slurm_command
+else:
+
+    def run_fake_slurm_command(cmd: str) -> str:
+        return ""
+
+
+def run_slurm_command(cmd: str) -> str:
+    if USE_FAKE_DATA:
+        return run_fake_slurm_command(cmd)
+    return subprocess.getoutput(cmd)
 
 
 def get_cluster_stats():
     try:
-        output = subprocess.getoutput("scontrol show node -o")
+        output = run_slurm_command("scontrol show node -o")
     except Exception:
         return [], (0, 0, 0, 0), (0, 0)
 
@@ -147,7 +180,7 @@ def get_job_stats():
         '" --sort=T'
     )
     try:
-        output = subprocess.getoutput(cmd)
+        output = run_slurm_command(cmd)
     except Exception:
         return []
 
@@ -162,11 +195,21 @@ def get_job_stats():
             continue
 
         gpu_count = "-"
-        if "gpu" in parts[8]:
+        gpu_field = parts[8]
+        if "gpu" in gpu_field:
             try:
-                node_mult = int(parts[6])
-                per_node = int(re.findall(r"\d+", parts[8])[-1])
-                gpu_count = str(node_mult * per_node)
+                # Support explicit total notation in fixtures: gpu_total=64
+                total_match = re.search(
+                    r"(?:gpu_total|total_gpu|gres/gpu)[:=](\d+)", gpu_field
+                )
+                if total_match:
+                    gpu_count = total_match.group(1)
+                else:
+                    node_mult = int(parts[6])
+                    per_node_match = re.search(r"gpu[^0-9]*(\d+)", gpu_field)
+                    if per_node_match:
+                        per_node = int(per_node_match.group(1))
+                        gpu_count = str(node_mult * per_node)
             except:
                 pass
 
@@ -202,14 +245,14 @@ def get_job_stats():
 def get_job_details(job_id):
     details = {"raw": "", "sstat": ""}
     try:
-        details["raw"] = subprocess.getoutput(f"scontrol show job {job_id}")
+        details["raw"] = run_slurm_command(f"scontrol show job {job_id}")
     except:
         details["raw"] = "Error fetching job details."
 
     if "JobState=RUNNING" in details["raw"]:
         try:
             cmd = f"sstat -j {job_id} --format=AveCPU,AveRSS,MaxRSS,MaxDiskRead,MaxDiskWrite -n -P"
-            sstat_out = subprocess.getoutput(cmd)
+            sstat_out = run_slurm_command(cmd)
             details["sstat"] = sstat_out
         except:
             pass
@@ -773,7 +816,7 @@ class SlurmDashboard(App):
             def handle_kill_response(confirmed: bool):
                 if confirmed:
                     try:
-                        subprocess.getoutput(f"scancel {job_id}")
+                        run_slurm_command(f"scancel {job_id}")
                         self.update_data()
                     except Exception as e:
                         self.notify(f"Error: {e}", severity="error")

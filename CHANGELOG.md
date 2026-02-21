@@ -7,6 +7,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Changed
+- chore: add a dedicated fake Slurm fixture backend, GPU-heavy demo dataset, and deterministic screenshot generation for README/docs.
+
 ## [0.2.0] - 2026-02-20
 
 ### Added

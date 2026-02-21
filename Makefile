@@ -1,7 +1,7 @@
 BINARY_NAME=smon
 SRC=src/main.py
 
-.PHONY: all build deploy clean
+.PHONY: all build deploy clean screenshot
 
 # "all" now triggers a clean build by default
 all: clean build
@@ -19,3 +19,6 @@ deploy: all
 clean:
 	rm -rf build dist *.spec
 	@echo "Cleaned up old build artifacts."
+
+screenshot:
+	uv run python scripts/generate_screenshot.py
