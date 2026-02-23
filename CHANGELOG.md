@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-23
+
 ### Added
 - Configuration file support via `~/.config/smon/config.toml` with documented example in `config.example.toml`.
 - Manual refresh action (`r`) for on-demand Slurm data reloads.
@@ -60,7 +62,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Initial `smon` release.
 
-[Unreleased]: https://github.com/RuHae/smon/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/RuHae/smon/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/RuHae/smon/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/RuHae/smon/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/RuHae/smon/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/RuHae/smon/releases/tag/v0.1.0
