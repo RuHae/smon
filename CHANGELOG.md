@@ -7,6 +7,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+- Configuration file support via `~/.config/smon/config.toml` with documented example in `config.example.toml`.
+- Manual refresh action (`r`) for on-demand Slurm data reloads.
+- Configurable startup preferences for compact mode, default pane, and visible job columns.
+
+### Changed
+- Enforced HPC-conformant Slurm polling policy: default auto-refresh is now 120 seconds, with a minimum allowed interval of 120 seconds.
+- Auto-refresh can be disabled for manual-only operation while keeping `r` available.
+- Full jobs table columns are now configurable instead of fixed.
+- Updated README with a community-tool disclaimer, HPC policy compliance notes, configuration docs, and contributor list.
+- Updated help screen keybindings and README screenshot to reflect manual refresh and current behavior.
+
 ## [0.3.0] - 2026-02-21
 
 ### Added
