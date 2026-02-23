@@ -4,6 +4,36 @@ import subprocess
 from fake_slurm_fixtures import run_fake_slurm_command
 from smon_config import USE_FAKE_DATA
 
+
+GPU_GRES_COUNT_PATTERN = re.compile(
+    r"(?:^|,)\s*(?:gres/)?gpu:(?:(?:[^:,()\s]+):)?(\d+)(?=$|,|\()"
+)
+GPU_ALLOC_TRES_PATTERN = re.compile(r"(?:^|,)\s*gres/gpu(?::[^=,\s]+)?=(\d+)(?=$|,)")
+GPU_TOTAL_PATTERN = re.compile(r"(?:gpu_total|total_gpu)[:=](\d+)")
+
+
+def _parse_gres_gpu_count(gres_value: str) -> int:
+    return sum(int(count) for count in GPU_GRES_COUNT_PATTERN.findall(gres_value))
+
+
+def _parse_alloc_tres_gpu_count(alloc_tres: str) -> int:
+    return sum(int(count) for count in GPU_ALLOC_TRES_PATTERN.findall(alloc_tres))
+
+
+def _parse_gpu_total(gpu_field: str) -> int | None:
+    match = GPU_TOTAL_PATTERN.search(gpu_field)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def _parse_gpu_per_node(gpu_field: str) -> int | None:
+    counts = GPU_GRES_COUNT_PATTERN.findall(gpu_field)
+    if counts:
+        return sum(int(count) for count in counts)
+    return None
+
+
 def run_slurm_command(cmd: str) -> str:
     if USE_FAKE_DATA:
         return run_fake_slurm_command(cmd)
@@ -35,18 +65,10 @@ def get_cluster_stats():
         m_u = int(data.get("AllocMem", 0))
         m_t = int(data.get("RealMemory", 1))
 
-        g_t, g_u = 0, 0
         gres_str = data.get("Gres", "")
-        if "gpu" in gres_str:
-            parts = re.findall(r":(\d+)", gres_str)
-            if parts:
-                g_t = int(parts[0])
-
         alloc_tres = data.get("AllocTRES", "")
-        if "gres/gpu" in alloc_tres:
-            match = re.search(r"gres/gpu[^=]*=(\d+)", alloc_tres)
-            if match:
-                g_u = int(match.group(1))
+        g_t = _parse_gres_gpu_count(gres_str)
+        g_u = _parse_alloc_tres_gpu_count(alloc_tres)
 
         t_cpu_u += c_u
         t_cpu_t += c_t
@@ -97,22 +119,18 @@ def get_job_stats():
 
         gpu_count = "-"
         gpu_field = parts[8]
-        if "gpu" in gpu_field:
-            try:
-                # Support explicit total notation in fixtures: gpu_total=64
-                total_match = re.search(
-                    r"(?:gpu_total|total_gpu|gres/gpu)[:=](\d+)", gpu_field
-                )
-                if total_match:
-                    gpu_count = total_match.group(1)
-                else:
+        try:
+            # Fixture compatibility: explicit total markers are whole-job totals.
+            explicit_total = _parse_gpu_total(gpu_field)
+            if explicit_total is not None:
+                gpu_count = str(explicit_total)
+            else:
+                per_node = _parse_gpu_per_node(gpu_field)
+                if per_node is not None:
                     node_mult = int(parts[6])
-                    per_node_match = re.search(r"gpu[^0-9]*(\d+)", gpu_field)
-                    if per_node_match:
-                        per_node = int(per_node_match.group(1))
-                        gpu_count = str(node_mult * per_node)
-            except Exception:
-                pass
+                    gpu_count = str(node_mult * per_node)
+        except Exception:
+            pass
 
         dep = parts[16]
         if dep == "(null)" or dep == "N/A":
