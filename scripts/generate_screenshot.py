@@ -22,7 +22,7 @@ GALLERY_OUTPUTS: list[tuple[str, Path]] = [
 ]
 
 MAIN_SIZE = (170, 45)
-GALLERY_SIZE = (136, 34)
+GALLERY_SIZE = (154, 39)
 
 
 def _build_render_env(xdg_config_home: str) -> dict[str, str]:
