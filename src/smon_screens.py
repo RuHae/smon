@@ -227,6 +227,7 @@ class ShortcutHelpScreen(ModalScreen):
                         ),
                         ("Shift+Left / Shift+H", "Focus Nodes pane."),
                         ("Shift+Right / Shift+L", "Focus Jobs pane."),
+                        ("r", "Manual refresh (reload data from Slurm)."),
                         ("c", "Toggle compact jobs view."),
                         ("/", "Open job filter dialog (user and name prefix)."),
                         ("z", "Clear all active job filters."),

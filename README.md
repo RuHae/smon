@@ -2,7 +2,12 @@
 
 # 🚀 smon (Slurm Monitor)
 
-**smon** is a real-time Terminal UI for monitoring Slurm clusters, focused on fast navigation and job operations directly from SSH sessions.
+**smon** is a community-developed real-time Terminal UI for viewing Slurm data, focused on fast navigation and job operations directly from SSH sessions.
+
+## ⚠️ Disclaimer
+- **smon is a community user tool, not an official service.**
+- It is not the authoritative source of cluster health, incidents, or availability.
+- Data shown in smon comes from Slurm CLI output and may be delayed, partial, or unavailable.
 
 ---
 
@@ -15,7 +20,8 @@
 - Vim-friendly navigation and pane layout controls.
 - Built-in shortcut manual (`?`) with keyboard scrolling.
 - Remote clipboard copy via OSC 52 (`y`) with local command fallback.
-- Auto-refresh every 2 seconds (no manual refresh needed).
+- Auto-refresh every 120 seconds (configurable, HPC cluster policy compliant).
+- Manual refresh with `r` key anytime.
 
 ---
 
@@ -64,6 +70,7 @@ SMON_FAKE_DATA=1 uv run python src/main.py
 | Key | Action |
 | :--- | :--- |
 | `q` | Quit |
+| `r` | Manual refresh (reload data from Slurm) |
 | `j` / `k` | Move selection down / up in focused table |
 | `h` / `l` | Horizontal scroll in jobs table |
 | `Shift+Left` / `Shift+H` | Focus Nodes pane |
@@ -91,6 +98,38 @@ SMON_FAKE_DATA=1 uv run python src/main.py
 
 ---
 
+## ⚙️ Configuration
+
+smon can be configured via `~/.config/smon/config.toml`. Copy `config.example.toml` from the repo to get started:
+
+```bash
+mkdir -p ~/.config/smon
+cp config.example.toml ~/.config/smon/config.toml
+```
+
+### Available Options
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `refresh_interval` | int | `120` | Seconds between auto-refresh (minimum: 120) |
+| `auto_refresh` | bool | `true` | Enable automatic refresh |
+| `compact_mode` | bool | `false` | Start in compact job view |
+| `default_pane` | string | `"jobs"` | Default focused pane (`"jobs"` or `"nodes"`) |
+| `job_columns` | list | all | Columns to show in full job view |
+
+### Example: Minimal Job Columns
+
+```toml
+# Show only essential columns
+job_columns = ["id", "user", "state", "gpu", "nodes", "left"]
+```
+
+### HPC Cluster Policy Compliance
+
+The default 120-second refresh interval complies with HPC cluster policies that discourage high-frequency polling of Slurm commands. Manual refresh (`r` key) is always available for on-demand updates.
+
+---
+
 ## 🔎 Filtering Jobs
 - Press `/` to open the job filter dialog.
 - `User` filter is exact-match and case-insensitive.
@@ -114,9 +153,10 @@ For `y` (copy job ID) over SSH, your terminal must support OSC 52.
 - `src/smon_dashboard.py`: main Textual dashboard app and layout/actions.
 - `src/smon_screens.py`: modal screens (help, job detail, kill confirmation, job filter).
 - `src/slurm_backend.py`: Slurm command execution and output parsing.
-- `src/smon_config.py`: runtime configuration (`SMON_FAKE_DATA`, refresh, title).
+- `src/smon_config.py`: runtime configuration (TOML loading, refresh, title).
 - `src/smon_clipboard.py`: OSC52/local clipboard helper.
 - `src/fake_slurm_fixtures.py`: demo fixture backend for fake Slurm data (`SMON_FAKE_DATA=1`).
+- `config.example.toml`: example configuration file with all options documented.
 - `pyproject.toml`: project metadata and dependencies.
 - `Makefile`: build/deploy automation.
 - `dist/smon`: generated standalone binary after `make build`.
@@ -127,3 +167,9 @@ For `y` (copy job ID) over SSH, your terminal must support OSC 52.
 - `make build`: sync dependencies and build standalone binary with PyInstaller.
 - `make deploy`: clean, build, and copy binary to `~/.local/bin/smon`.
 - `make clean`: remove build artifacts (`build`, `dist`, `*.spec`).
+
+---
+
+## 🤝 Contributors
+- [@RuHae](https://github.com/RuHae)
+- [@mauricekraus](https://github.com/mauricekraus)

@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 
 from rich import box
@@ -17,13 +18,35 @@ from slurm_backend import (
     run_slurm_command,
 )
 from smon_clipboard import copy_to_clipboard
-from smon_config import CLUSTER_NAME, DASHBOARD_TITLE, REFRESH_RATE
+from smon_config import ALL_JOB_COLUMNS, CLUSTER_NAME, CONFIG, DASHBOARD_TITLE
 from smon_screens import (
     JobDetailScreen,
     JobFilterScreen,
     KillConfirmationScreen,
     ShortcutHelpScreen,
 )
+
+
+# Column definitions: key -> (header_name, data_key, needs_styling)
+JOB_COLUMN_DEFS = {
+    "id": ("ID", "id", False),
+    "name": ("Name", "name", False),
+    "user": ("User", "user", False),
+    "account": ("Acct", "account", False),
+    "state": ("State", "state", True),
+    "prio": ("Prio", "prio", False),
+    "left": ("Left", "left", False),
+    "gpu": ("GPU", "gpu", False),
+    "cpu": ("CPU", "cpu", False),
+    "mem": ("Mem", "mem", False),
+    "nodes": ("Nodes", "nodes", False),
+    "reason": ("Node/Reason", "reason", False),
+    "qos": ("QOS", "qos", False),
+    "part": ("Part", "part", False),
+    "dep": ("Dep", "dep", False),
+    "time": ("Time", "time", False),
+    "submit": ("Submit", "submit", False),
+}
 
 
 class Branding(Static):
@@ -41,6 +64,27 @@ class Branding(Static):
         clock = Text(f"{datetime.now().strftime('%H:%M:%S')} ", style="bold green")
         grid.add_row(title, cluster, clock)
         self.update(Panel(grid, style="white", box=box.ROUNDED, height=3))
+
+
+class RefreshPill(Static):
+    """Displays countdown to next auto-refresh."""
+
+    def __init__(self, dashboard: "SlurmDashboard", **kwargs):
+        super().__init__(**kwargs)
+        self._dashboard = dashboard
+
+    def on_mount(self):
+        self.set_interval(1.0, self.update_display)
+        self.update_display()
+
+    def update_display(self):
+        if not CONFIG.auto_refresh:
+            self.update(" ⏱ OFF ")
+            return
+
+        elapsed = time.time() - self._dashboard.last_refresh_time
+        remaining = max(0, CONFIG.refresh_interval - int(elapsed))
+        self.update(f" ⏱ {remaining}s ")
 
 
 class ClusterBars(Static):
@@ -127,6 +171,17 @@ class SlurmDashboard(App):
         text-style: bold;
     }
 
+    #refresh-pill {
+        width: auto;
+        height: 1;
+        min-width: 8;
+        padding: 0 1;
+        content-align: center middle;
+        text-style: bold;
+        background: #065f46;
+        color: #d1fae5;
+    }
+
     #status-footer {
         width: 1fr;
         height: 1;
@@ -210,6 +265,7 @@ class SlurmDashboard(App):
 
     BINDINGS = [
         ("q", "quit", "Quit"),
+        ("r", "manual_refresh", "Refresh"),
         ("c", "toggle_compact", "Compact"),
         ("/", "show_filter", "Filter"),
         ("z", "clear_filters", "Clear Filter"),
@@ -224,12 +280,14 @@ class SlurmDashboard(App):
     DEFAULT_NODE_PANE_WIDTH = 42
     MIN_NODE_PANE_WIDTH = 24
     PANE_RESIZE_STEP = 4
-    show_compact = reactive(False)
+    show_compact = reactive(CONFIG.compact_mode)
     pane_mode = "split"
     node_pane_width = DEFAULT_NODE_PANE_WIDTH
     key_mode = "normal"  # normal, toggle
     job_filter_user = ""
     job_filter_prefix = ""
+    last_refresh_time = 0.0
+    _refresh_timer = None
 
     def compose(self) -> ComposeResult:
         yield Branding()
@@ -245,6 +303,7 @@ class SlurmDashboard(App):
         with Horizontal(id="statusline"):
             yield Static(" NORMAL ", id="mode-pill")
             yield Static(" FILTER: OFF ", id="filter-pill")
+            yield RefreshPill(self, id="refresh-pill")
             yield Footer(id="status-footer")
 
     def on_mount(self) -> None:
@@ -256,11 +315,24 @@ class SlurmDashboard(App):
         node_table.add_columns("Node", "State", "CPU", "Mem", "GPU")
         node_table.zebra_stripes = True
 
-        self.query_one("#job_table", DataTable).focus()
+        # Focus the configured default pane
+        if CONFIG.default_pane == "nodes":
+            self.query_one("#node_table", DataTable).focus()
+        else:
+            self.query_one("#job_table", DataTable).focus()
+
         self._apply_mode_visual_state()
         self._update_filter_pill(total_jobs=0, visible_jobs=0)
         self.apply_pane_layout()
-        self.set_interval(REFRESH_RATE, self.update_data)
+
+        # Set up auto-refresh if enabled
+        if CONFIG.auto_refresh:
+            self._refresh_timer = self.set_interval(
+                CONFIG.refresh_interval, self.update_data
+            )
+
+        # Initial data load
+        self.last_refresh_time = time.time()
         self.update_data()
 
     def on_resize(self, event) -> None:
@@ -431,6 +503,12 @@ class SlurmDashboard(App):
         except Exception:
             self.notify("Could not identify job.", severity="error")
 
+    def action_manual_refresh(self):
+        """Manually refresh data (r key)."""
+        self.last_refresh_time = time.time()
+        self.update_data()
+        self.notify("Data refreshed", timeout=1.5)
+
     def watch_show_compact(self, value: bool) -> None:
         self.rebuild_job_columns()
         self.update_data()
@@ -442,26 +520,11 @@ class SlurmDashboard(App):
             table.styles.min_width = "100%"
             table.add_columns("ID", "User", "State", "Left", "Nodes", "GPU")
         else:
-            table.styles.min_width = 170
-            table.add_columns(
-                "ID",
-                "Name",
-                "User",
-                "Acct",
-                "State",
-                "Prio",
-                "Left",
-                "GPU",
-                "CPU",
-                "Mem",
-                "Nodes",
-                "Node/Reason",
-                "QOS",
-                "Part",
-                "Dep",
-                "Time",
-                "Submit",
-            )
+            # Use configured columns
+            headers = [JOB_COLUMN_DEFS[col][0] for col in CONFIG.job_columns]
+            # Calculate min width based on number of columns
+            table.styles.min_width = max(100, len(headers) * 10)
+            table.add_columns(*headers)
 
     def action_toggle_compact(self):
         self.show_compact = not self.show_compact
@@ -601,7 +664,20 @@ class SlurmDashboard(App):
         self.node_pane_width = self.DEFAULT_NODE_PANE_WIDTH
         self.apply_pane_layout()
 
+    def _get_job_cell_value(self, job: dict, col_key: str) -> str | Text:
+        """Get the cell value for a job column, with styling if needed."""
+        _, data_key, needs_styling = JOB_COLUMN_DEFS[col_key]
+        value = job.get(data_key, "")
+
+        if needs_styling and col_key == "state":
+            color = "green" if value == "RUNNING" else "yellow"
+            return Text.from_markup(f"[{color}]{value}[/]")
+
+        return value
+
     def update_data(self):
+        self.last_refresh_time = time.time()
+
         nodes, theo, real = get_cluster_stats()
         jobs = get_job_stats()
         total_jobs = len(jobs)
@@ -661,25 +737,11 @@ class SlurmDashboard(App):
                     job["gpu"],
                 )
             else:
-                j_table.add_row(
-                    job["id"],
-                    job["name"],
-                    job["user"],
-                    job["account"],
-                    state_txt,
-                    job["prio"],
-                    job["left"],
-                    job["gpu"],
-                    job["cpu"],
-                    job["mem"],
-                    job["nodes"],
-                    job["reason"],
-                    job["qos"],
-                    job["part"],
-                    job["dep"],
-                    job["time"],
-                    job["submit"],
-                )
+                # Use configured columns
+                row_values = [
+                    self._get_job_cell_value(job, col) for col in CONFIG.job_columns
+                ]
+                j_table.add_row(*row_values)
 
         j_table.scroll_y = j_scroll_y
         j_wrapper.scroll_x = j_scroll_x

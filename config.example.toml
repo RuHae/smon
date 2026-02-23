@@ -1,0 +1,45 @@
+# smon configuration file
+# Copy to ~/.config/smon/config.toml to customize
+
+# Refresh interval in seconds.
+# Minimum enforced: 120 seconds (HPC cluster policy compliance).
+# Manual refresh with 'r' key is always available.
+refresh_interval = 120
+
+# Enable automatic refresh.
+# Set to false for manual-only refresh mode.
+auto_refresh = true
+
+# Start in compact job view (fewer columns).
+compact_mode = false
+
+# Default focused pane on startup: "jobs" or "nodes"
+default_pane = "jobs"
+
+# Columns to display in the full (non-compact) jobs table.
+# Available columns:
+#   id, name, user, account, state, prio, left, gpu, cpu, mem,
+#   nodes, reason, qos, part, dep, time, submit
+#
+# Default: all columns shown
+# Example for minimal view:
+#   job_columns = ["id", "user", "state", "gpu", "nodes", "left"]
+job_columns = [
+    "id",
+    "name",
+    "user",
+    "account",
+    "state",
+    "prio",
+    "left",
+    "gpu",
+    "cpu",
+    "mem",
+    "nodes",
+    "reason",
+    "qos",
+    "part",
+    "dep",
+    "time",
+    "submit",
+]

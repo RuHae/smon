@@ -12,6 +12,7 @@ keywords = ["hpc", "slurm", "dashboard", "tui", "monitoring", "smon"]
 dependencies = [
     "rich>=14.3.1",
     "textual>=7.5.0",
+    "tomli>=2.0.0; python_version < '3.11'",
 ]
 
 [dependency-groups]
