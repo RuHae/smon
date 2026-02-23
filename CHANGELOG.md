@@ -12,6 +12,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Manual refresh action (`r`) for on-demand Slurm data reloads.
 - Configurable startup preferences for compact mode, default pane, and visible job columns.
 - Configurable dashboard color schemes (`default`, `ocean`, `sunset`, `graphite`) via `color_scheme`.
+- README theme gallery showing screenshots for all built-in color schemes.
 
 ### Changed
 - Enforced HPC-conformant Slurm polling policy: default auto-refresh is now 120 seconds, with a minimum allowed interval of 120 seconds.
@@ -19,6 +20,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Full jobs table columns are now configurable instead of fixed.
 - Updated README with a community-tool disclaimer, HPC policy compliance notes, configuration docs, and contributor list.
 - Updated help screen keybindings and README screenshot to reflect manual refresh and current behavior.
+- `make screenshot` now generates all README theme screenshots in one run.
+- Theme gallery screenshots now render at smaller dimensions than the main README screenshot.
 
 ## [0.3.0] - 2026-02-21
 

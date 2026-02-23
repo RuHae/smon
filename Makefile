@@ -21,4 +21,5 @@ clean:
 	@echo "Cleaned up old build artifacts."
 
 screenshot:
+	@echo "Generating README screenshots (default + theme gallery)..."
 	uv run python scripts/generate_screenshot.py
