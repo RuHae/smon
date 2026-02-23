@@ -7,6 +7,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-02-23
+
+### Added
+- Regression tests for GPU parsing in `slurm_backend`, including realistic `scontrol show node -o` fixture coverage and obfuscated `squeue` job cases.
+- CI workflow running tests on pull requests and pushes to `main`.
+
+### Fixed
+- Correct GPU parsing for typed GRES values such as `gpu:h100:1` and `gres/gpu:h100:1` so model digits are not misread as GPU counts.
+- Preserve per-node GPU semantics in job parsing (`per-node * nodes`) while keeping `gpu_total`/`total_gpu` as explicit totals.
+
 ## [0.4.0] - 2026-02-23
 
 ### Added
@@ -62,7 +72,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Initial `smon` release.
 
-[Unreleased]: https://github.com/RuHae/smon/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/RuHae/smon/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/RuHae/smon/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/RuHae/smon/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/RuHae/smon/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/RuHae/smon/compare/v0.1.0...v0.2.0
