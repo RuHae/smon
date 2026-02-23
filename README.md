@@ -115,6 +115,7 @@ cp config.example.toml ~/.config/smon/config.toml
 | `auto_refresh` | bool | `true` | Enable automatic refresh |
 | `compact_mode` | bool | `false` | Start in compact job view |
 | `default_pane` | string | `"jobs"` | Default focused pane (`"jobs"` or `"nodes"`) |
+| `color_scheme` | string | `"default"` | UI color palette (`"default"`, `"ocean"`, `"sunset"`, `"graphite"`) |
 | `job_columns` | list | all | Columns to show in full job view |
 
 ### Example: Minimal Job Columns
@@ -122,6 +123,12 @@ cp config.example.toml ~/.config/smon/config.toml
 ```toml
 # Show only essential columns
 job_columns = ["id", "user", "state", "gpu", "nodes", "left"]
+```
+
+### Example: Color Scheme
+
+```toml
+color_scheme = "ocean"
 ```
 
 ### HPC Cluster Policy Compliance

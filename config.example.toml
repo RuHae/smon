@@ -16,6 +16,10 @@ compact_mode = false
 # Default focused pane on startup: "jobs" or "nodes"
 default_pane = "jobs"
 
+# Color palette for the dashboard UI.
+# Available: "default", "ocean", "sunset", "graphite"
+color_scheme = "default"
+
 # Columns to display in the full (non-compact) jobs table.
 # Available columns:
 #   id, name, user, account, state, prio, left, gpu, cpu, mem,

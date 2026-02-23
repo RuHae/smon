@@ -18,7 +18,7 @@ from slurm_backend import (
     run_slurm_command,
 )
 from smon_clipboard import copy_to_clipboard
-from smon_config import ALL_JOB_COLUMNS, CLUSTER_NAME, CONFIG, DASHBOARD_TITLE
+from smon_config import ACTIVE_COLOR_SCHEME, CLUSTER_NAME, CONFIG, DASHBOARD_TITLE
 from smon_screens import (
     JobDetailScreen,
     JobFilterScreen,
@@ -49,6 +49,179 @@ JOB_COLUMN_DEFS = {
 }
 
 
+def _build_dashboard_css() -> str:
+    css = """
+    Screen { layout: vertical; }
+    Branding { height: auto; width: 100%; margin: 0; padding: 0; }
+    #header-stats { height: auto; width: 100%; margin: 0; padding: 0; }
+    #node-pane { width: 42; height: 100%; border-right: solid __PANE_ACCENT__; }
+
+    #job-pane {
+        width: 1fr;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    #job-scroll-wrapper {
+        width: 100%;
+        height: 1fr;
+        overflow-x: auto;
+    }
+
+    .pane-header { text-align: center; text-style: bold; background: __PANE_HEADER_BG__; color: __PANE_HEADER_FG__; padding: 0 1; width: 100%; border-bottom: solid __PANE_ACCENT__; }
+    DataTable { height: 100%; scrollbar-gutter: stable; }
+
+    #statusline {
+        height: 1;
+        width: 100%;
+        layout: horizontal;
+        background: $footer-background;
+        color: $footer-foreground;
+    }
+
+    #mode-pill {
+        width: auto;
+        height: 1;
+        min-width: 8;
+        padding: 0 1;
+        content-align: center middle;
+        text-style: bold;
+        background: __MODE_NORMAL_BG__;
+        color: __MODE_NORMAL_FG__;
+    }
+
+    #filter-pill {
+        width: auto;
+        height: 1;
+        min-width: 14;
+        padding: 0 1;
+        content-align: center middle;
+        text-style: bold;
+    }
+
+    #refresh-pill {
+        width: auto;
+        height: 1;
+        min-width: 8;
+        padding: 0 1;
+        content-align: center middle;
+        text-style: bold;
+        background: __REFRESH_BG__;
+        color: __REFRESH_FG__;
+    }
+
+    #status-footer {
+        width: 1fr;
+        height: 1;
+        dock: none;
+    }
+
+    #status-footer FooterKey {
+        background: transparent;
+    }
+
+    #status-footer FooterLabel {
+        background: transparent;
+    }
+
+    SlurmDashboard.-mode-normal #mode-pill {
+        background: __MODE_NORMAL_BG__;
+        color: __MODE_NORMAL_FG__;
+    }
+
+    SlurmDashboard.-mode-normal #statusline,
+    SlurmDashboard.-mode-normal #status-footer,
+    SlurmDashboard.-mode-normal #status-footer FooterKey,
+    SlurmDashboard.-mode-normal #status-footer FooterLabel {
+        background: __STATUS_NORMAL_BG__;
+        color: __STATUS_NORMAL_FG__;
+    }
+
+    SlurmDashboard.-mode-normal #status-footer FooterKey .footer-key--key {
+        background: __FOOTER_KEY_NORMAL_BG__;
+        color: __FOOTER_KEY_NORMAL_FG__;
+    }
+
+    SlurmDashboard.-mode-normal #status-footer FooterKey .footer-key--description {
+        background: __STATUS_NORMAL_BG__;
+        color: __STATUS_NORMAL_FG__;
+    }
+
+    SlurmDashboard.-mode-normal.-filter-inactive #filter-pill {
+        background: __FILTER_NORMAL_INACTIVE_BG__;
+        color: __FILTER_NORMAL_INACTIVE_FG__;
+    }
+
+    SlurmDashboard.-mode-normal.-filter-active #filter-pill {
+        background: __FILTER_NORMAL_ACTIVE_BG__;
+        color: __FILTER_NORMAL_ACTIVE_FG__;
+    }
+
+    SlurmDashboard.-mode-toggle #mode-pill {
+        background: __MODE_TOGGLE_BG__;
+        color: __MODE_TOGGLE_FG__;
+    }
+
+    SlurmDashboard.-mode-toggle #statusline,
+    SlurmDashboard.-mode-toggle #status-footer,
+    SlurmDashboard.-mode-toggle #status-footer FooterKey,
+    SlurmDashboard.-mode-toggle #status-footer FooterLabel {
+        background: __STATUS_TOGGLE_BG__;
+        color: __STATUS_TOGGLE_FG__;
+    }
+
+    SlurmDashboard.-mode-toggle #status-footer FooterKey .footer-key--key {
+        background: __FOOTER_KEY_TOGGLE_BG__;
+        color: __FOOTER_KEY_TOGGLE_FG__;
+    }
+
+    SlurmDashboard.-mode-toggle #status-footer FooterKey .footer-key--description {
+        background: __STATUS_TOGGLE_BG__;
+        color: __STATUS_TOGGLE_FG__;
+    }
+
+    SlurmDashboard.-mode-toggle.-filter-inactive #filter-pill {
+        background: __FILTER_TOGGLE_INACTIVE_BG__;
+        color: __FILTER_TOGGLE_INACTIVE_FG__;
+    }
+
+    SlurmDashboard.-mode-toggle.-filter-active #filter-pill {
+        background: __FILTER_TOGGLE_ACTIVE_BG__;
+        color: __FILTER_TOGGLE_ACTIVE_FG__;
+    }
+    """
+    replacements = {
+        "__PANE_ACCENT__": ACTIVE_COLOR_SCHEME["pane_accent"],
+        "__PANE_HEADER_BG__": ACTIVE_COLOR_SCHEME["pane_header_bg"],
+        "__PANE_HEADER_FG__": ACTIVE_COLOR_SCHEME["pane_header_fg"],
+        "__MODE_NORMAL_BG__": ACTIVE_COLOR_SCHEME["mode_normal_bg"],
+        "__MODE_NORMAL_FG__": ACTIVE_COLOR_SCHEME["mode_normal_fg"],
+        "__REFRESH_BG__": ACTIVE_COLOR_SCHEME["refresh_bg"],
+        "__REFRESH_FG__": ACTIVE_COLOR_SCHEME["refresh_fg"],
+        "__STATUS_NORMAL_BG__": ACTIVE_COLOR_SCHEME["status_normal_bg"],
+        "__STATUS_NORMAL_FG__": ACTIVE_COLOR_SCHEME["status_normal_fg"],
+        "__FOOTER_KEY_NORMAL_BG__": ACTIVE_COLOR_SCHEME["footer_key_normal_bg"],
+        "__FOOTER_KEY_NORMAL_FG__": ACTIVE_COLOR_SCHEME["footer_key_normal_fg"],
+        "__FILTER_NORMAL_INACTIVE_BG__": ACTIVE_COLOR_SCHEME["filter_normal_inactive_bg"],
+        "__FILTER_NORMAL_INACTIVE_FG__": ACTIVE_COLOR_SCHEME["filter_normal_inactive_fg"],
+        "__FILTER_NORMAL_ACTIVE_BG__": ACTIVE_COLOR_SCHEME["filter_normal_active_bg"],
+        "__FILTER_NORMAL_ACTIVE_FG__": ACTIVE_COLOR_SCHEME["filter_normal_active_fg"],
+        "__MODE_TOGGLE_BG__": ACTIVE_COLOR_SCHEME["mode_toggle_bg"],
+        "__MODE_TOGGLE_FG__": ACTIVE_COLOR_SCHEME["mode_toggle_fg"],
+        "__STATUS_TOGGLE_BG__": ACTIVE_COLOR_SCHEME["status_toggle_bg"],
+        "__STATUS_TOGGLE_FG__": ACTIVE_COLOR_SCHEME["status_toggle_fg"],
+        "__FOOTER_KEY_TOGGLE_BG__": ACTIVE_COLOR_SCHEME["footer_key_toggle_bg"],
+        "__FOOTER_KEY_TOGGLE_FG__": ACTIVE_COLOR_SCHEME["footer_key_toggle_fg"],
+        "__FILTER_TOGGLE_INACTIVE_BG__": ACTIVE_COLOR_SCHEME["filter_toggle_inactive_bg"],
+        "__FILTER_TOGGLE_INACTIVE_FG__": ACTIVE_COLOR_SCHEME["filter_toggle_inactive_fg"],
+        "__FILTER_TOGGLE_ACTIVE_BG__": ACTIVE_COLOR_SCHEME["filter_toggle_active_bg"],
+        "__FILTER_TOGGLE_ACTIVE_FG__": ACTIVE_COLOR_SCHEME["filter_toggle_active_fg"],
+    }
+    for token, value in replacements.items():
+        css = css.replace(token, value)
+    return css
+
+
 class Branding(Static):
     def on_mount(self):
         self.update_branding()
@@ -59,9 +232,12 @@ class Branding(Static):
         grid.add_column(justify="left", ratio=1)
         grid.add_column(justify="center", ratio=1)
         grid.add_column(justify="right", ratio=1)
-        title = Text(f" {DASHBOARD_TITLE}", style="bold cyan")
-        cluster = Text(f"🖥  {CLUSTER_NAME}", style="bold magenta")
-        clock = Text(f"{datetime.now().strftime('%H:%M:%S')} ", style="bold green")
+        title = Text(f" {DASHBOARD_TITLE}", style=ACTIVE_COLOR_SCHEME["brand_title"])
+        cluster = Text(f"🖥  {CLUSTER_NAME}", style=ACTIVE_COLOR_SCHEME["brand_cluster"])
+        clock = Text(
+            f"{datetime.now().strftime('%H:%M:%S')} ",
+            style=ACTIVE_COLOR_SCHEME["brand_clock"],
+        )
         grid.add_row(title, cluster, clock)
         self.update(Panel(grid, style="white", box=box.ROUNDED, height=3))
 
@@ -105,12 +281,20 @@ class ClusterBars(Static):
 
         cpu_grid = RichTable.grid(expand=True, padding=(0, 1))
         cpu_grid.add_column()
-        cpu_grid.add_row(make_bar("Total", c_used, c_tot, "cyan"))
-        cpu_grid.add_row(make_bar("Active", c_used, c_real, "blue"))
+        cpu_grid.add_row(
+            make_bar("Total", c_used, c_tot, ACTIVE_COLOR_SCHEME["cpu_total"])
+        )
+        cpu_grid.add_row(
+            make_bar("Active", c_used, c_real, ACTIVE_COLOR_SCHEME["cpu_active"])
+        )
         gpu_grid = RichTable.grid(expand=True, padding=(0, 1))
         gpu_grid.add_column()
-        gpu_grid.add_row(make_bar("Total", g_used, g_tot, "magenta"))
-        gpu_grid.add_row(make_bar("Active", g_used, g_real, "purple"))
+        gpu_grid.add_row(
+            make_bar("Total", g_used, g_tot, ACTIVE_COLOR_SCHEME["gpu_total"])
+        )
+        gpu_grid.add_row(
+            make_bar("Active", g_used, g_real, ACTIVE_COLOR_SCHEME["gpu_active"])
+        )
         main_grid = RichTable.grid(expand=True, padding=(0, 0))
         main_grid.add_column(ratio=1)
         main_grid.add_column(ratio=1)
@@ -122,146 +306,7 @@ class ClusterBars(Static):
 
 
 class SlurmDashboard(App):
-    CSS = """
-    Screen { layout: vertical; }
-    Branding { height: auto; width: 100%; margin: 0; padding: 0; }
-    #header-stats { height: auto; width: 100%; margin: 0; padding: 0; }
-    #node-pane { width: 42; height: 100%; border-right: solid $accent; }
-
-    #job-pane {
-        width: 1fr;
-        height: 100%;
-        overflow: hidden;
-    }
-
-    #job-scroll-wrapper {
-        width: 100%;
-        height: 1fr;
-        overflow-x: auto;
-    }
-
-    .pane-header { text-align: center; text-style: bold; background: $panel; color: $text; padding: 0 1; width: 100%; border-bottom: solid $accent; }
-    DataTable { height: 100%; scrollbar-gutter: stable; }
-
-    #statusline {
-        height: 1;
-        width: 100%;
-        layout: horizontal;
-        background: $footer-background;
-        color: $footer-foreground;
-    }
-
-    #mode-pill {
-        width: auto;
-        height: 1;
-        min-width: 8;
-        padding: 0 1;
-        content-align: center middle;
-        text-style: bold;
-        background: #1e3a8a;
-        color: #dbeafe;
-    }
-
-    #filter-pill {
-        width: auto;
-        height: 1;
-        min-width: 14;
-        padding: 0 1;
-        content-align: center middle;
-        text-style: bold;
-    }
-
-    #refresh-pill {
-        width: auto;
-        height: 1;
-        min-width: 8;
-        padding: 0 1;
-        content-align: center middle;
-        text-style: bold;
-        background: #065f46;
-        color: #d1fae5;
-    }
-
-    #status-footer {
-        width: 1fr;
-        height: 1;
-        dock: none;
-    }
-
-    #status-footer FooterKey {
-        background: transparent;
-    }
-
-    #status-footer FooterLabel {
-        background: transparent;
-    }
-
-    SlurmDashboard.-mode-normal #mode-pill {
-        background: #1e3a8a;
-        color: #dbeafe;
-    }
-
-    SlurmDashboard.-mode-normal #statusline,
-    SlurmDashboard.-mode-normal #status-footer,
-    SlurmDashboard.-mode-normal #status-footer FooterKey,
-    SlurmDashboard.-mode-normal #status-footer FooterLabel {
-        background: #334155;
-        color: #e2e8f0;
-    }
-
-    SlurmDashboard.-mode-normal #status-footer FooterKey .footer-key--key {
-        background: #1e3a8a;
-        color: #dbeafe;
-    }
-
-    SlurmDashboard.-mode-normal #status-footer FooterKey .footer-key--description {
-        background: #334155;
-        color: #e2e8f0;
-    }
-
-    SlurmDashboard.-mode-normal.-filter-inactive #filter-pill {
-        background: #1f2937;
-        color: #9ca3af;
-    }
-
-    SlurmDashboard.-mode-normal.-filter-active #filter-pill {
-        background: #0f766e;
-        color: #ccfbf1;
-    }
-
-    SlurmDashboard.-mode-toggle #mode-pill {
-        background: #f59e0b;
-        color: #1f2937;
-    }
-
-    SlurmDashboard.-mode-toggle #statusline,
-    SlurmDashboard.-mode-toggle #status-footer,
-    SlurmDashboard.-mode-toggle #status-footer FooterKey,
-    SlurmDashboard.-mode-toggle #status-footer FooterLabel {
-        background: #7c2d12;
-        color: #ffedd5;
-    }
-
-    SlurmDashboard.-mode-toggle #status-footer FooterKey .footer-key--key {
-        background: #f59e0b;
-        color: #1f2937;
-    }
-
-    SlurmDashboard.-mode-toggle #status-footer FooterKey .footer-key--description {
-        background: #7c2d12;
-        color: #ffedd5;
-    }
-
-    SlurmDashboard.-mode-toggle.-filter-inactive #filter-pill {
-        background: #92400e;
-        color: #ffedd5;
-    }
-
-    SlurmDashboard.-mode-toggle.-filter-active #filter-pill {
-        background: #facc15;
-        color: #1f2937;
-    }
-    """
+    CSS = _build_dashboard_css()
 
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -670,7 +715,11 @@ class SlurmDashboard(App):
         value = job.get(data_key, "")
 
         if needs_styling and col_key == "state":
-            color = "green" if value == "RUNNING" else "yellow"
+            color = (
+                ACTIVE_COLOR_SCHEME["job_state_running"]
+                if value == "RUNNING"
+                else ACTIVE_COLOR_SCHEME["job_state_other"]
+            )
             return Text.from_markup(f"[{color}]{value}[/]")
 
         return value
@@ -691,12 +740,20 @@ class SlurmDashboard(App):
         n_scroll, n_cursor = n_table.scroll_y, n_table.cursor_coordinate
         n_table.clear()
         for node in nodes:
-            c_style = "[red]" if node["c_u"] >= node["c_t"] else "[green]"
-            g_style = "[red]" if node["g_u"] >= node["g_t"] else "[green]"
+            c_style = (
+                f"[{ACTIVE_COLOR_SCHEME['node_metric_hot']}]"
+                if node["c_u"] >= node["c_t"]
+                else f"[{ACTIVE_COLOR_SCHEME['node_metric_ok']}]"
+            )
+            g_style = (
+                f"[{ACTIVE_COLOR_SCHEME['node_metric_hot']}]"
+                if node["g_u"] >= node["g_t"]
+                else f"[{ACTIVE_COLOR_SCHEME['node_metric_ok']}]"
+            )
             state_fmt = (
-                f"[green]{node['state']}[/]"
+                f"[{ACTIVE_COLOR_SCHEME['node_state_idle']}]{node['state']}[/]"
                 if "IDLE" in node["state"]
-                else f"[bold red]{node['state']}[/]"
+                else f"[bold {ACTIVE_COLOR_SCHEME['node_state_bad']}]{node['state']}[/]"
                 if any(x in node["state"] for x in ["DOWN", "DRAIN"])
                 else node["state"]
             )
@@ -725,7 +782,11 @@ class SlurmDashboard(App):
         j_table.clear()
 
         for job in jobs:
-            state_color = "green" if job["state"] == "RUNNING" else "yellow"
+            state_color = (
+                ACTIVE_COLOR_SCHEME["job_state_running"]
+                if job["state"] == "RUNNING"
+                else ACTIVE_COLOR_SCHEME["job_state_other"]
+            )
             state_txt = Text.from_markup(f"[{state_color}]{job['state']}[/]")
             if self.show_compact:
                 j_table.add_row(

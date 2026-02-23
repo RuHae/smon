@@ -11,6 +11,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Configuration file support via `~/.config/smon/config.toml` with documented example in `config.example.toml`.
 - Manual refresh action (`r`) for on-demand Slurm data reloads.
 - Configurable startup preferences for compact mode, default pane, and visible job columns.
+- Configurable dashboard color schemes (`default`, `ocean`, `sunset`, `graphite`) via `color_scheme`.
 
 ### Changed
 - Enforced HPC-conformant Slurm polling policy: default auto-refresh is now 120 seconds, with a minimum allowed interval of 120 seconds.
