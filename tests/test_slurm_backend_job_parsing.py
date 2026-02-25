@@ -18,6 +18,14 @@ def _build_squeue_output() -> str:
     return "\n".join([header, *rows])
 
 
+def _build_squeue_output_with_duplicate_rows() -> str:
+    base = _build_squeue_output().splitlines()
+    header = base[0]
+    rows = base[1:]
+    # Reproduce production symptom: same job rows repeated in the output.
+    return "\n".join([header, *rows, *rows])
+
+
 def test_get_job_stats_parses_typed_and_untyped_gpu_counts(monkeypatch):
     monkeypatch.setattr(slurm_backend, "run_slurm_command", lambda _cmd: _build_squeue_output())
 
@@ -29,3 +37,22 @@ def test_get_job_stats_parses_typed_and_untyped_gpu_counts(monkeypatch):
     assert jobs_by_id["100003"]["gpu"] == "1"
     assert jobs_by_id["100004"]["gpu"] == "64"
     assert jobs_by_id["100005"]["gpu"] == "-"
+
+
+def test_get_job_stats_deduplicates_repeated_rows(monkeypatch):
+    monkeypatch.setattr(
+        slurm_backend,
+        "run_slurm_command",
+        lambda _cmd: _build_squeue_output_with_duplicate_rows(),
+    )
+
+    jobs = slurm_backend.get_job_stats()
+
+    assert len(jobs) == 5
+    assert [job["id"] for job in jobs] == [
+        "100001",
+        "100002",
+        "100003",
+        "100004",
+        "100005",
+    ]
