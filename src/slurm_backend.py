@@ -108,7 +108,7 @@ def get_job_stats():
         return []
 
     jobs_data = []
-    seen_jobs: set[tuple[str, str]] = set()
+    seen_job_ids: set[str] = set()
     lines = output.split("\n")
 
     for line in lines[1:]:
@@ -118,10 +118,10 @@ def get_job_stats():
         if len(parts) < 17:
             continue
 
-        job_key = (parts[0], parts[15])  # (job id, submit timestamp)
-        if job_key in seen_jobs:
+        job_id = parts[0]
+        if job_id in seen_job_ids:
             continue
-        seen_jobs.add(job_key)
+        seen_job_ids.add(job_id)
 
         gpu_count = "-"
         gpu_field = parts[8]
@@ -144,7 +144,7 @@ def get_job_stats():
 
         jobs_data.append(
             {
-                "id": parts[0],
+                "id": job_id,
                 "user": parts[1],
                 "state": parts[2],
                 "time": parts[3],

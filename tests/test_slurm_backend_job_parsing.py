@@ -26,6 +26,20 @@ def _build_squeue_output_with_duplicate_rows() -> str:
     return "\n".join([header, *rows, *rows])
 
 
+def _build_squeue_output_with_same_id_different_submit() -> str:
+    header = (
+        "JOBID USER STATE TIME LEFT PRIO NODES REASON GRES NAME CPU MEM PART "
+        "ACCOUNT QOS SUBMIT DEP"
+    )
+    rows = [
+        "100001 user01 PENDING 00:00:00 00:50:00 100 1 (Priority) gres/gpu:h100:4 ruler-dt-de 64 256G all acct01 normal 2026-02-24T13:25:09 (null)",
+        # Same job repeated with updated runtime/submit rendering from another snapshot.
+        "100001 user01 PENDING 00:00:00 00:49:59 100 1 (Priority) gres/gpu:h100:4 ruler-dt-de 64 256G all acct01 normal 2026-02-24T13:25:10 (null)",
+        "100002 user02 PENDING 00:00:00 00:40:00 110 2 (Priority) gres/gpu:h100:1 longbench-dt-de 128 1T all acct02 normal 2026-02-24T13:44:30 (null)",
+    ]
+    return "\n".join([header, *rows])
+
+
 def test_get_job_stats_parses_typed_and_untyped_gpu_counts(monkeypatch):
     monkeypatch.setattr(slurm_backend, "run_slurm_command", lambda _cmd: _build_squeue_output())
 
@@ -56,3 +70,16 @@ def test_get_job_stats_deduplicates_repeated_rows(monkeypatch):
         "100004",
         "100005",
     ]
+
+
+def test_get_job_stats_deduplicates_same_job_id_with_changed_submit(monkeypatch):
+    monkeypatch.setattr(
+        slurm_backend,
+        "run_slurm_command",
+        lambda _cmd: _build_squeue_output_with_same_id_different_submit(),
+    )
+
+    jobs = slurm_backend.get_job_stats()
+
+    assert len(jobs) == 2
+    assert [job["id"] for job in jobs] == ["100001", "100002"]
