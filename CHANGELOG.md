@@ -7,6 +7,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-02-25
+
+### Added
+- Startup-focused regression tests for duplicate job rendering scenarios in `smon_dashboard`.
+- Additional `squeue` duplicate test cases in `slurm_backend` for repeated rows and repeated job IDs.
+
+### Fixed
+- Prevent duplicate job rows at startup by deduplicating job IDs before rendering the jobs table.
+- Initialize jobs table columns before first data paint to avoid startup render inconsistencies.
+- Ignore pre-runtime reactive compact-mode updates that could trigger redundant startup table refreshes.
+
 ## [0.4.1] - 2026-02-23
 
 ### Added
@@ -72,7 +83,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Initial `smon` release.
 
-[Unreleased]: https://github.com/RuHae/smon/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/RuHae/smon/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/RuHae/smon/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/RuHae/smon/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/RuHae/smon/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/RuHae/smon/compare/v0.2.0...v0.3.0

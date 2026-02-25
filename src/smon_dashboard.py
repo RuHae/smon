@@ -49,6 +49,23 @@ JOB_COLUMN_DEFS = {
 }
 
 
+def _dedupe_jobs_by_id(jobs: list[dict]) -> list[dict]:
+    deduped: list[dict] = []
+    seen_job_ids: set[str] = set()
+
+    for job in jobs:
+        job_id = str(job.get("id", ""))
+        if not job_id:
+            deduped.append(job)
+            continue
+        if job_id in seen_job_ids:
+            continue
+        seen_job_ids.add(job_id)
+        deduped.append(job)
+
+    return deduped
+
+
 def _build_dashboard_css() -> str:
     css = """
     Screen { layout: vertical; }
@@ -360,6 +377,9 @@ class SlurmDashboard(App):
         node_table.add_columns("Node", "State", "CPU", "Mem", "GPU")
         node_table.zebra_stripes = True
 
+        # Ensure the jobs table has a stable schema before first render.
+        self.rebuild_job_columns()
+
         # Focus the configured default pane
         if CONFIG.default_pane == "nodes":
             self.query_one("#node_table", DataTable).focus()
@@ -555,6 +575,8 @@ class SlurmDashboard(App):
         self.notify("Data refreshed", timeout=1.5)
 
     def watch_show_compact(self, value: bool) -> None:
+        if not self.is_running:
+            return
         self.rebuild_job_columns()
         self.update_data()
 
@@ -728,7 +750,7 @@ class SlurmDashboard(App):
         self.last_refresh_time = time.time()
 
         nodes, theo, real = get_cluster_stats()
-        jobs = get_job_stats()
+        jobs = _dedupe_jobs_by_id(get_job_stats())
         total_jobs = len(jobs)
         jobs = self._filter_jobs(jobs)
         visible_jobs = len(jobs)
