@@ -7,6 +7,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-16
+
+### Added
+- Batch kill action (`X`) to cancel all jobs matching a user and/or job name prefix at once.
+  Opens a two-step flow: a criteria form (pre-filled from the active filter) followed by a
+  confirmation screen showing the exact count and a preview of job IDs before executing.
+- Persistent filter state: active filter (user + job name prefix) is automatically saved to
+  `~/.config/smon/config.toml` under a `[filter]` section and restored on next launch.
+  Filter state is per-user by nature of the XDG config path.
+
 ## [0.4.2] - 2026-02-25
 
 ### Added

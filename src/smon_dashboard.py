@@ -18,8 +18,10 @@ from slurm_backend import (
     run_slurm_command,
 )
 from smon_clipboard import copy_to_clipboard
-from smon_config import ACTIVE_COLOR_SCHEME, CLUSTER_NAME, CONFIG, DASHBOARD_TITLE
+from smon_config import ACTIVE_COLOR_SCHEME, CLUSTER_NAME, CONFIG, DASHBOARD_TITLE, save_filter_state
 from smon_screens import (
+    BatchKillConfirmationScreen,
+    BatchKillScreen,
     JobDetailScreen,
     JobFilterScreen,
     KillConfirmationScreen,
@@ -334,6 +336,7 @@ class SlurmDashboard(App):
         ("m", "toggle_mode", "Mode"),
         ("question_mark", "show_help", "Help"),
         ("x", "kill_job", "Kill Job"),
+        ("X", "kill_all_jobs", "Kill All"),
         ("delete", "kill_job", "Kill Job"),
         ("y", "copy_job_id", "Copy ID"),
         ("copy", "copy_job_id", "Copy ID"),
@@ -346,8 +349,8 @@ class SlurmDashboard(App):
     pane_mode = "split"
     node_pane_width = DEFAULT_NODE_PANE_WIDTH
     key_mode = "normal"  # normal, toggle
-    job_filter_user = ""
-    job_filter_prefix = ""
+    job_filter_user = CONFIG.saved_filter_user
+    job_filter_prefix = CONFIG.saved_filter_prefix
     last_refresh_time = 0.0
     _refresh_timer = None
 
@@ -568,6 +571,76 @@ class SlurmDashboard(App):
         except Exception:
             self.notify("Could not identify job.", severity="error")
 
+    def action_kill_all_jobs(self):
+        """Open batch-kill dialog (X key)."""
+
+        def handle_batch_kill_spec(result: dict[str, str] | None):
+            if result is None:
+                return
+
+            kill_user = result.get("user", "").strip()
+            kill_prefix = result.get("prefix", "").strip()
+
+            # Resolve matching jobs from the full (unfiltered) job list
+            all_jobs = _dedupe_jobs_by_id(get_job_stats())
+            user_f = kill_user.casefold()
+            prefix_f = kill_prefix.casefold()
+            matched: list[dict] = []
+            for job in all_jobs:
+                user_ok = (
+                    str(job.get("user", "")).casefold() == user_f if user_f else True
+                )
+                prefix_ok = (
+                    str(job.get("name", "")).casefold().startswith(prefix_f)
+                    if prefix_f
+                    else True
+                )
+                if user_ok and prefix_ok:
+                    matched.append(job)
+
+            if not matched:
+                self.notify("No jobs match those criteria.", severity="warning")
+                return
+
+            tokens = []
+            if kill_user:
+                tokens.append(f"U={kill_user}")
+            if kill_prefix:
+                tokens.append(f"N^={kill_prefix}")
+            filter_desc = " ".join(tokens)
+
+            def handle_batch_kill_confirm(confirmed: bool):
+                if not confirmed:
+                    return
+                cancelled = 0
+                errors = 0
+                for job in matched:
+                    try:
+                        run_slurm_command(f"scancel {job['id']}")
+                        cancelled += 1
+                    except Exception:
+                        errors += 1
+                self.update_data()
+                msg = f"Cancelled {cancelled} job(s)."
+                if errors:
+                    msg += f" {errors} error(s)."
+                    self.notify(msg, severity="warning")
+                else:
+                    self.notify(msg)
+
+            self.push_screen(
+                BatchKillConfirmationScreen(matched, filter_desc),
+                handle_batch_kill_confirm,
+            )
+
+        self.push_screen(
+            BatchKillScreen(
+                current_user=self.job_filter_user,
+                current_prefix=self.job_filter_prefix,
+            ),
+            handle_batch_kill_spec,
+        )
+
     def action_manual_refresh(self):
         """Manually refresh data (r key)."""
         self.last_refresh_time = time.time()
@@ -672,6 +745,7 @@ class SlurmDashboard(App):
                 return
             self.job_filter_user = result.get("user", "").strip()
             self.job_filter_prefix = result.get("prefix", "").strip()
+            save_filter_state(self.job_filter_user, self.job_filter_prefix)
             self.update_data()
 
         self.push_screen(
@@ -687,6 +761,7 @@ class SlurmDashboard(App):
             return
         self.job_filter_user = ""
         self.job_filter_prefix = ""
+        save_filter_state("", "")
         self.update_data()
 
     def action_focus_nodes_pane(self):

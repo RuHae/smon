@@ -225,6 +225,8 @@ class SmonConfig:
     default_pane: str = "jobs"
     job_columns: list[str] = field(default_factory=lambda: ALL_JOB_COLUMNS.copy())
     color_scheme: str = DEFAULT_COLOR_SCHEME
+    saved_filter_user: str = ""
+    saved_filter_prefix: str = ""
 
     @classmethod
     def get_config_path(cls) -> Path:
@@ -332,7 +334,58 @@ class SmonConfig:
                     file=sys.stderr,
                 )
 
+        # Parse saved filter state from [filter] sub-table
+        filter_data = data.get("filter", {})
+        if isinstance(filter_data, dict):
+            config.saved_filter_user = str(filter_data.get("user", "")).strip()
+            config.saved_filter_prefix = str(filter_data.get("prefix", "")).strip()
+
         return config
+
+
+def save_filter_state(user: str, prefix: str, config_path: Path | None = None) -> None:
+    """Persist filter state to the [filter] section of the config file.
+
+    Reads the existing file (if any), updates or inserts the [filter] block,
+    and writes it back without touching the rest of the file.
+    """
+    if config_path is None:
+        config_path = SmonConfig.get_config_path()
+
+    # Read existing content (preserve user comments / other settings)
+    if config_path.exists():
+        try:
+            raw = config_path.read_text(encoding="utf-8")
+        except OSError:
+            raw = ""
+    else:
+        raw = ""
+        # Ensure parent directory exists
+        try:
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return
+
+    new_filter_block = f'[filter]\nuser = "{user}"\nprefix = "{prefix}"\n'
+
+    # Replace existing [filter] block (everything from the header to the next
+    # section header or end-of-file), or append if absent.
+    import re as _re
+    pattern = _re.compile(
+        r'^\[filter\][^\[]*',
+        _re.MULTILINE | _re.DOTALL,
+    )
+    if pattern.search(raw):
+        updated = pattern.sub(new_filter_block, raw)
+    else:
+        # Append with a blank line separator
+        separator = "\n" if raw and not raw.endswith("\n\n") else ""
+        updated = raw + separator + new_filter_block
+
+    try:
+        config_path.write_text(updated, encoding="utf-8")
+    except OSError:
+        pass
 
 
 # Load config at module initialization

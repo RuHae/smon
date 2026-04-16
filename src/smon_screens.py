@@ -185,6 +185,110 @@ class JobFilterScreen(ModalScreen[dict[str, str] | None]):
             self.dismiss(None)
 
 
+class BatchKillScreen(ModalScreen[dict[str, str] | None]):
+    """Modal to specify which jobs to batch-cancel (by user and/or job name prefix)."""
+
+    CSS = """
+    BatchKillScreen { align: center middle; background: rgba(40, 0, 0, 0.8); }
+    #bk-dialog { width: 74; height: auto; background: $surface; border: solid red; padding: 1 2; }
+    .warning-text { text-align: center; color: red; text-style: bold; margin-bottom: 1; width: 100%; }
+    .hint { color: $text-muted; margin-bottom: 1; width: 100%; }
+    .field-label { text-style: bold; margin-top: 1; width: 100%; }
+    #bk-button-row { align: center middle; height: auto; width: 100%; margin-top: 2; }
+    Button { margin: 0 1; }
+    .label { color: $text-muted; text-align: center; width: 100%; margin-top: 1; }
+    """
+
+    def __init__(self, current_user: str = "", current_prefix: str = ""):
+        super().__init__()
+        self.current_user = current_user
+        self.current_prefix = current_prefix
+
+    def compose(self) -> ComposeResult:
+        with Container(id="bk-dialog"):
+            yield Label("⚠️  BATCH KILL JOBS ⚠️", classes="warning-text")
+            yield Label(
+                "Cancel all jobs matching the criteria below. "
+                "At least one field must be set.",
+                classes="hint",
+            )
+            yield Label("User (exact, case-insensitive)", classes="field-label")
+            yield Input(value=self.current_user, id="bk-user-input")
+            yield Label("Job name prefix (starts with, case-insensitive)", classes="field-label")
+            yield Input(value=self.current_prefix, id="bk-prefix-input")
+            with Horizontal(id="bk-button-row"):
+                yield Button("Kill All Matching", variant="error", id="kill")
+                yield Button("Cancel", variant="primary", id="cancel")
+            yield Label("[Enter to proceed • Esc to cancel]", classes="label")
+
+    def on_mount(self) -> None:
+        self.query_one("#bk-user-input", Input).focus()
+
+    def _collect(self) -> dict[str, str]:
+        user_value = self.query_one("#bk-user-input", Input).value.strip()
+        prefix_value = self.query_one("#bk-prefix-input", Input).value.strip()
+        return {"user": user_value, "prefix": prefix_value}
+
+    def _submit(self) -> None:
+        values = self._collect()
+        if not values["user"] and not values["prefix"]:
+            self.notify("Set at least one filter field.", severity="warning")
+            return
+        self.dismiss(values)
+
+    def key_enter(self) -> None:
+        self._submit()
+
+    def key_escape(self) -> None:
+        self.dismiss(None)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "kill":
+            self._submit()
+        else:
+            self.dismiss(None)
+
+
+class BatchKillConfirmationScreen(ModalScreen[bool]):
+    """Shows how many jobs will be killed and asks for final confirmation."""
+
+    CSS = """
+    BatchKillConfirmationScreen { align: center middle; background: rgba(40, 0, 0, 0.85); }
+    #bkc-dialog { width: 74; height: auto; background: $surface; border: solid red; padding: 1 2; }
+    .warning-text { text-align: center; color: red; text-style: bold; margin-bottom: 1; width: 100%; }
+    .info-text { margin-bottom: 1; width: 100%; }
+    #bkc-button-row { align: center middle; height: auto; width: 100%; margin-top: 1; }
+    Button { margin: 0 2; }
+    """
+
+    def __init__(self, jobs: list[dict], filter_desc: str):
+        super().__init__()
+        self.jobs = jobs
+        self.filter_desc = filter_desc
+
+    def compose(self) -> ComposeResult:
+        count = len(self.jobs)
+        preview_ids = [str(j.get("id", "?")) for j in self.jobs[:8]]
+        preview = ", ".join(preview_ids)
+        if count > 8:
+            preview += f" … (+{count - 8} more)"
+
+        with Container(id="bkc-dialog"):
+            yield Label("⚠️  CONFIRM BATCH KILL ⚠️", classes="warning-text")
+            yield Label(
+                f"About to cancel [bold red]{count}[/] job(s) "
+                f"matching: [bold]{self.filter_desc}[/]\n\n"
+                f"Job IDs: {preview}",
+                classes="info-text",
+            )
+            with Horizontal(id="bkc-button-row"):
+                yield Button(f"Yes, Kill {count} Job(s)", variant="error", id="confirm")
+                yield Button("No, Keep Them", variant="primary", id="cancel")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(event.button.id == "confirm")
+
+
 class ShortcutHelpScreen(ModalScreen):
     CSS = """
     ShortcutHelpScreen { align: center middle; background: rgba(0,0,0,0.75); }
@@ -232,6 +336,7 @@ class ShortcutHelpScreen(ModalScreen):
                         ("/", "Open job filter dialog (user and name prefix)."),
                         ("z", "Clear all active job filters."),
                         ("x / Delete", "Kill selected job."),
+                        ("X", "Batch kill jobs by user and/or job name prefix."),
                         ("y", "Copy selected job ID."),
                         ("Enter", "Open selected job details."),
                         ("?", "Open/close this manual."),
@@ -258,9 +363,9 @@ class ShortcutHelpScreen(ModalScreen):
                     "Filters",
                     [
                         ("User filter", "Exact user match (case-insensitive)."),
-                        ("Name prefix", "Job name starts-with match (case-insensitive)."),
+                        ("Name prefix", "Job run-name starts-with match (case-insensitive)."),
                         ("Combination", "Both fields are combined with AND."),
-                        ("Persistence", "Filters stay active across auto-refresh."),
+                        ("Persistence", "Filters stay active across auto-refresh and are saved to config."),
                     ],
                 )
                 yield Static(filter_table)
