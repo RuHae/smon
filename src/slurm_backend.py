@@ -4,12 +4,27 @@ import subprocess
 from fake_slurm_fixtures import run_fake_slurm_command
 from smon_config import USE_FAKE_DATA
 
-
 GPU_GRES_COUNT_PATTERN = re.compile(
     r"(?:^|,)\s*(?:gres/)?gpu:(?:(?:[^:,()\s]+):)?(\d+)(?=$|,|\()"
 )
 GPU_ALLOC_TRES_PATTERN = re.compile(r"(?:^|,)\s*gres/gpu(?::[^=,\s]+)?=(\d+)(?=$|,)")
 GPU_TOTAL_PATTERN = re.compile(r"(?:gpu_total|total_gpu)[:=](\d+)")
+ARRAY_JOB_PATTERN = re.compile(r"^(?P<base>\d+)_(?P<task>\d+|\[(?P<spec>[^]]+)\])$")
+
+ARRAY_RUNNING_STATES = {"RUNNING", "COMPLETING"}
+ARRAY_PENDING_STATES = {"PENDING", "CONFIGURING", "REQUEUED", "RESIZING", "SUSPENDED"}
+ARRAY_FAILED_STATES = {
+    "BOOT_FAIL",
+    "CANCELLED",
+    "DEADLINE",
+    "FAILED",
+    "NODE_FAIL",
+    "OUT_OF_MEMORY",
+    "PREEMPTED",
+    "REVOKED",
+    "SPECIAL_EXIT",
+    "TIMEOUT",
+}
 
 
 def _parse_gres_gpu_count(gres_value: str) -> int:
@@ -32,6 +47,89 @@ def _parse_gpu_per_node(gpu_field: str) -> int | None:
     if counts:
         return sum(int(count) for count in counts)
     return None
+
+
+def _count_array_task_spec(spec: str) -> int:
+    """Count tasks in a Slurm array expression such as ``1-15%8``."""
+    spec = spec.split("%", 1)[0]
+    count = 0
+    for component in spec.split(","):
+        component = component.strip()
+        if not component:
+            continue
+        range_part, _, step_part = component.partition(":")
+        if "-" not in range_part:
+            if range_part.isdigit():
+                count += 1
+            continue
+        start_text, end_text = range_part.split("-", 1)
+        if not start_text.isdigit() or not end_text.isdigit():
+            continue
+        start, end = int(start_text), int(end_text)
+        step = int(step_part) if step_part.isdigit() and int(step_part) > 0 else 1
+        if end >= start:
+            count += ((end - start) // step) + 1
+    return count
+
+
+def _parse_array_progress(output: str) -> list[dict[str, int | str]]:
+    progress: dict[str, dict[str, int | str]] = {}
+
+    for line in output.splitlines():
+        parts = line.strip().split("|", 2)
+        if len(parts) < 2:
+            continue
+        job_id, state = parts[0].strip(), parts[1].strip()
+        match = ARRAY_JOB_PATTERN.fullmatch(job_id)
+        if match is None:
+            continue
+
+        task_count = 1
+        if match.group("spec") is not None:
+            task_count = _count_array_task_spec(match.group("spec"))
+        if task_count == 0:
+            continue
+
+        base = match.group("base")
+        entry = progress.setdefault(
+            base,
+            {
+                "array_id": base,
+                "done": 0,
+                "running": 0,
+                "pending": 0,
+                "failed": 0,
+                "other": 0,
+                "total": 0,
+            },
+        )
+        normalized_state = state.split()[0].rstrip("+") if state else "UNKNOWN"
+        if normalized_state == "COMPLETED":
+            bucket = "done"
+        elif normalized_state in ARRAY_RUNNING_STATES:
+            bucket = "running"
+        elif normalized_state in ARRAY_PENDING_STATES:
+            bucket = "pending"
+        elif normalized_state in ARRAY_FAILED_STATES:
+            bucket = "failed"
+        else:
+            bucket = "other"
+        entry[bucket] = int(entry[bucket]) + task_count
+        entry["total"] = int(entry["total"]) + task_count
+
+    return sorted(progress.values(), key=lambda item: int(str(item["array_id"])))
+
+
+def get_array_progress(array_job_ids: set[str]) -> list[dict[str, int | str]]:
+    """Return task-state counts for active array allocations using one sacct query."""
+    safe_ids = sorted(job_id for job_id in array_job_ids if job_id.isdigit())
+    if not safe_ids:
+        return []
+    job_list = ",".join(safe_ids)
+    output = run_slurm_command(
+        f"sacct -X -n -P -j {job_list} --format=JobID,State"
+    )
+    return _parse_array_progress(output)
 
 
 def run_slurm_command(cmd: str) -> str:
@@ -98,7 +196,7 @@ def get_cluster_stats():
 def get_job_stats():
     cmd = (
         'squeue --all --format="'
-        "%i %.8u %.11T %.11M %.12L %.10Q %.4D %.40R %.20b %.40j "
+        "%i %u %.11T %.11M %.12L %.10Q %.4D %.40R %.20b %.40j "
         "%.6C %.8m %.10P %.20a %.10q %.20V %.20E"
         '" --sort=T'
     )

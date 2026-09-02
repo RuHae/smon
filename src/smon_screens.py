@@ -146,10 +146,10 @@ class JobFilterScreen(ModalScreen[dict[str, str] | None]):
         with Container(id="filter-dialog"):
             yield Label("🔎 Job Filter", classes="header")
             yield Label(
-                "Case-insensitive matching. User + prefix filters are combined with AND.",
+                "Case-insensitive matching. User contains + name prefix are combined with AND.",
                 classes="hint",
             )
-            yield Label("User (exact)", classes="field-label")
+            yield Label("User (contains)", classes="field-label")
             yield Input(value=self.current_user, id="filter-user-input")
             yield Label("Name prefix (starts with)", classes="field-label")
             yield Input(value=self.current_prefix, id="filter-prefix-input")
@@ -170,7 +170,11 @@ class JobFilterScreen(ModalScreen[dict[str, str] | None]):
     def _apply(self) -> None:
         self.dismiss(self._collect_filters())
 
-    def key_enter(self) -> None:
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        # Consume Enter while the modal is still active. Dismissing from a
+        # screen-level key handler can let the same key reach the jobs table,
+        # which then opens the first visible job's detail screen.
+        event.stop()
         self._apply()
 
     def key_escape(self) -> None:
@@ -333,6 +337,7 @@ class ShortcutHelpScreen(ModalScreen):
                         ("Shift+Right / Shift+L", "Focus Jobs pane."),
                         ("r", "Manual refresh (reload data from Slurm)."),
                         ("c", "Toggle compact jobs view."),
+                        ("w", "Minimize/restore the My Workload panel."),
                         ("/", "Open job filter dialog (user and name prefix)."),
                         ("z", "Clear all active job filters."),
                         ("x / Delete", "Kill selected job."),

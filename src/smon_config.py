@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from fake_slurm_fixtures import get_fake_cluster_name
+from smon_version import SMON_VERSION
 
 # Try tomllib (Python 3.11+), fall back to tomli
 try:
@@ -16,7 +17,7 @@ except ImportError:
         tomllib = None  # type: ignore
 
 
-DASHBOARD_TITLE = "🚀 HPC CLUSTER MONITOR"
+DASHBOARD_TITLE = f"🚀 HPC CLUSTER MONITOR v{SMON_VERSION}"
 
 # Minimum refresh interval enforced for cluster policy compliance
 MIN_REFRESH_INTERVAL = 120
@@ -276,7 +277,7 @@ class SmonConfig:
                 config.refresh_interval = interval
             except (ValueError, TypeError):
                 print(
-                    f"Warning: Invalid refresh_interval value, using default.",
+                    "Warning: Invalid refresh_interval value, using default.",
                     file=sys.stderr,
                 )
 

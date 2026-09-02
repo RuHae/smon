@@ -13,6 +13,7 @@
 
 ## ✨ Features
 - Live node and job dashboard with CPU, memory, and GPU usage.
+- Collapsible My Workload panel with personal GPU usage and per-array task progress.
 - Interactive job filtering by user and job-name prefix.
 - Job detail modal (`scontrol` + live `sstat` when running).
 - Safe kill flow with confirmation.
@@ -76,6 +77,7 @@ SMON_FAKE_DATA=1 uv run python src/main.py
 | `Shift+Left` / `Shift+H` | Focus Nodes pane |
 | `Shift+Right` / `Shift+L` | Focus Jobs pane |
 | `c` | Toggle compact jobs table |
+| `w` | Minimize/restore My Workload panel |
 | `/` | Open job filter dialog |
 | `z` | Clear all active job filters |
 | `x` / `Delete` | Kill selected job (with confirmation) |
@@ -149,10 +151,10 @@ The default 120-second refresh interval complies with HPC cluster policies that 
 
 ## 🔎 Filtering Jobs
 - Press `/` to open the job filter dialog.
-- `User` filter is exact-match and case-insensitive.
+- `User` filter is case-insensitive substring matching.
 - `Name prefix` filter matches job names that start with the prefix (case-insensitive).
 - If both fields are set, matching uses **AND**.
-- Active filters persist across auto-refresh until cleared.
+- Active filters persist across auto-refresh and application restarts until cleared.
 - Press `z` for a quick clear-all reset.
 
 ---

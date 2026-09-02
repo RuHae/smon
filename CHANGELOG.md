@@ -7,6 +7,23 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-02
+
+### Changed
+- Make the jobs-table user filter case-insensitive substring matching instead of exact
+  matching.
+- Show the smon version in the dashboard title.
+
+### Added
+- Add a collapsible My Workload bottom panel with current-user GPU usage, running and
+  pending task counts, and per-array completed/running/pending/failed progress. Toggle it
+  with `w` or by clicking its header.
+
+### Fixed
+- Consume Enter inside the filter dialog so applying a filter cannot also open the first
+  visible job's detail screen.
+- Cover persisted filter restoration across application restarts with regression tests.
+
 ## [0.5.1] - 2026-09-02
 
 ### Fixed
@@ -100,7 +117,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Initial `smon` release.
 
-[Unreleased]: https://github.com/RuHae/smon/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/RuHae/smon/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/RuHae/smon/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/RuHae/smon/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/RuHae/smon/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/RuHae/smon/compare/v0.4.1...v0.4.2

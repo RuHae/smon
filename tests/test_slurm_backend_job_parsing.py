@@ -105,6 +105,7 @@ def test_get_job_stats_preserves_long_array_task_ids(monkeypatch):
         # 288764_10 through 288764_15 to the same apparent ID, 288764_1.
         assert 'squeue --all --format="%i ' in cmd
         assert "%.8i" not in cmd
+        assert "%.8u" not in cmd
         return _build_squeue_output_with_long_array_task_ids()
 
     monkeypatch.setattr(slurm_backend, "run_slurm_command", fake_run)
@@ -119,4 +120,42 @@ def test_get_job_stats_preserves_long_array_task_ids(monkeypatch):
         "288764_13",
         "288764_14",
         "288764_15",
+    ]
+
+
+def test_parse_array_progress_counts_ranges_and_terminal_states():
+    output = "\n".join(
+        [
+            "288764_0|COMPLETED",
+            "288764_[1-8]|COMPLETED",
+            "288764_9|RUNNING",
+            "288764_[10-30%8]|PENDING",
+            "288764_31|FAILED",
+            "288765_[0-8:2]|COMPLETED",
+            "288765_[1,3,5,7]|CANCELLED by 1000",
+            "288765_9.batch|FAILED",
+        ]
+    )
+
+    progress = slurm_backend._parse_array_progress(output)
+
+    assert progress == [
+        {
+            "array_id": "288764",
+            "done": 9,
+            "running": 1,
+            "pending": 21,
+            "failed": 1,
+            "other": 0,
+            "total": 32,
+        },
+        {
+            "array_id": "288765",
+            "done": 5,
+            "running": 0,
+            "pending": 0,
+            "failed": 4,
+            "other": 0,
+            "total": 9,
+        },
     ]

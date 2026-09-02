@@ -1,3 +1,5 @@
+import getpass
+import re
 import time
 from datetime import datetime
 
@@ -6,19 +8,26 @@ from rich.panel import Panel
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table as RichTable
 from rich.text import Text
-from textual import on
+from textual import events, on
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widgets import DataTable, Footer, Label, Static
 
 from slurm_backend import (
+    get_array_progress,
     get_cluster_stats,
     get_job_stats,
     run_slurm_command,
 )
 from smon_clipboard import copy_to_clipboard
-from smon_config import ACTIVE_COLOR_SCHEME, CLUSTER_NAME, CONFIG, DASHBOARD_TITLE, save_filter_state
+from smon_config import (
+    ACTIVE_COLOR_SCHEME,
+    CLUSTER_NAME,
+    CONFIG,
+    DASHBOARD_TITLE,
+    save_filter_state,
+)
 from smon_screens import (
     BatchKillConfirmationScreen,
     BatchKillScreen,
@@ -27,7 +36,6 @@ from smon_screens import (
     KillConfirmationScreen,
     ShortcutHelpScreen,
 )
-
 
 # Column definitions: key -> (header_name, data_key, needs_styling)
 JOB_COLUMN_DEFS = {
@@ -49,6 +57,70 @@ JOB_COLUMN_DEFS = {
     "time": ("Time", "time", False),
     "submit": ("Submit", "submit", False),
 }
+
+ARRAY_JOB_ID_PATTERN = re.compile(r"^(?P<base>\d+)_(?:\d+|\[[^]]+\])$")
+
+
+def _build_workload_stats(
+    jobs: list[dict],
+    current_user: str,
+    array_progress: list[dict[str, int | str]],
+) -> dict[str, object]:
+    user_jobs = [job for job in jobs if str(job.get("user", "")) == current_user]
+    array_bases = {
+        match.group("base")
+        for job in user_jobs
+        if (match := ARRAY_JOB_ID_PATTERN.fullmatch(str(job.get("id", ""))))
+    }
+    array_names: dict[str, str] = {}
+    for job in user_jobs:
+        match = ARRAY_JOB_ID_PATTERN.fullmatch(str(job.get("id", "")))
+        if match is not None:
+            array_names.setdefault(match.group("base"), str(job.get("name", "")))
+    progress_by_base = {
+        str(item["array_id"]): item
+        for item in array_progress
+        if str(item["array_id"]) in array_bases
+    }
+
+    running_gpus = sum(
+        int(job["gpu"])
+        for job in user_jobs
+        if job.get("state") == "RUNNING" and str(job.get("gpu", "")).isdigit()
+    )
+    non_array_jobs = [
+        job
+        for job in user_jobs
+        if ARRAY_JOB_ID_PATTERN.fullmatch(str(job.get("id", ""))) is None
+    ]
+    running = sum(1 for job in non_array_jobs if job.get("state") == "RUNNING")
+    pending = sum(1 for job in non_array_jobs if job.get("state") == "PENDING")
+
+    for base in array_bases:
+        progress = progress_by_base.get(base)
+        if progress is not None:
+            running += int(progress["running"])
+            pending += int(progress["pending"])
+            continue
+        # Accounting may be temporarily unavailable. Fall back to squeue rows.
+        for job in user_jobs:
+            match = ARRAY_JOB_ID_PATTERN.fullmatch(str(job.get("id", "")))
+            if match is None or match.group("base") != base:
+                continue
+            running += int(job.get("state") == "RUNNING")
+            pending += int(job.get("state") == "PENDING")
+
+    return {
+        "user": current_user,
+        "gpus": running_gpus,
+        "running": running,
+        "pending": pending,
+        "arrays": [
+            {**progress_by_base[base], "name": array_names.get(base, "")}
+            for base in sorted(progress_by_base, key=int)
+        ],
+        "array_count": len(array_bases),
+    }
 
 
 def _dedupe_jobs_by_id(jobs: list[dict]) -> list[dict]:
@@ -86,6 +158,31 @@ def _build_dashboard_css() -> str:
         height: 1fr;
         overflow-x: auto;
     }
+
+    #workload-pane {
+        width: 100%;
+        height: 8;
+        border-top: solid __PANE_ACCENT__;
+        background: $surface;
+    }
+
+    #workload-header {
+        width: 100%;
+        height: 1;
+        padding: 0 1;
+        text-style: bold;
+        background: __PANE_HEADER_BG__;
+        color: __PANE_HEADER_FG__;
+    }
+
+    #workload-content {
+        width: 100%;
+        height: 1fr;
+        padding: 0 1;
+    }
+
+    SlurmDashboard.-workload-collapsed #workload-pane { height: 1; }
+    SlurmDashboard.-workload-collapsed #workload-content { display: none; }
 
     .pane-header { text-align: center; text-style: bold; background: __PANE_HEADER_BG__; color: __PANE_HEADER_FG__; padding: 0 1; width: 100%; border-bottom: solid __PANE_ACCENT__; }
     DataTable { height: 100%; scrollbar-gutter: stable; }
@@ -334,6 +431,7 @@ class SlurmDashboard(App):
         ("/", "show_filter", "Filter"),
         ("z", "clear_filters", "Clear Filter"),
         ("m", "toggle_mode", "Mode"),
+        ("w", "toggle_workload", "Workload"),
         ("question_mark", "show_help", "Help"),
         ("x", "kill_job", "Kill Job"),
         ("X", "kill_all_jobs", "Kill All"),
@@ -353,6 +451,8 @@ class SlurmDashboard(App):
     job_filter_prefix = CONFIG.saved_filter_prefix
     last_refresh_time = 0.0
     _refresh_timer = None
+    workload_collapsed = False
+    _workload_summary_text = ""
 
     def compose(self) -> ComposeResult:
         yield Branding()
@@ -365,6 +465,9 @@ class SlurmDashboard(App):
                 yield Label("📊 ACTIVE JOBS", classes="pane-header")
                 with Container(id="job-scroll-wrapper"):
                     yield DataTable(id="job_table", cursor_type="row")
+        with Vertical(id="workload-pane"):
+            yield Label("▼ MY WORKLOAD", id="workload-header")
+            yield Static(id="workload-content")
         with Horizontal(id="statusline"):
             yield Static(" NORMAL ", id="mode-pill")
             yield Static(" FILTER: OFF ", id="filter-pill")
@@ -669,6 +772,76 @@ class SlurmDashboard(App):
     def action_toggle_compact(self):
         self.show_compact = not self.show_compact
 
+    def action_toggle_workload(self) -> None:
+        self.workload_collapsed = not self.workload_collapsed
+        self.set_class(self.workload_collapsed, "-workload-collapsed")
+        self._update_workload_header()
+
+    @on(events.Click, "#workload-header")
+    def toggle_workload_from_click(self, event: events.Click) -> None:
+        event.stop()
+        self.action_toggle_workload()
+
+    def _update_workload_header(self) -> None:
+        marker = "▶" if self.workload_collapsed else "▼"
+        summary = f" · {self._workload_summary_text}" if self._workload_summary_text else ""
+        self.query_one("#workload-header", Label).update(
+            f"{marker} MY WORKLOAD{summary} · w/click"
+        )
+
+    def _update_workload_panel(
+        self,
+        jobs: list[dict],
+        array_progress: list[dict[str, int | str]],
+    ) -> None:
+        stats = _build_workload_stats(jobs, getpass.getuser(), array_progress)
+        self._workload_summary_text = (
+            f"{stats['user']} · GPUs {stats['gpus']} · "
+            f"tasks R{stats['running']}/P{stats['pending']} · "
+            f"arrays {stats['array_count']}"
+        )
+        self._update_workload_header()
+
+        content = self.query_one("#workload-content", Static)
+        arrays = list(stats["arrays"])
+        if not arrays:
+            content.update("No active array jobs with accounting data.")
+            return
+
+        table = RichTable.grid(expand=True, padding=(0, 2))
+        table.add_column("Array", style="bold cyan")
+        table.add_column("Name", ratio=1)
+        table.add_column("Done", justify="right", style="green")
+        table.add_column("Running", justify="right")
+        table.add_column("Pending", justify="right", style="yellow")
+        table.add_column("Failed", justify="right", style="red")
+        table.add_column("Total", justify="right")
+        table.add_column("Progress", ratio=1)
+        table.add_row(
+            "Array", "Name", "Done", "Running", "Pending", "Failed", "Total", "Progress"
+        )
+        for progress in arrays[:4]:
+            total = int(progress["total"])
+            terminal = int(progress["done"]) + int(progress["failed"])
+            fraction = terminal / total if total else 0.0
+            complete_blocks = round(fraction * 10)
+            bar = "█" * complete_blocks + "░" * (10 - complete_blocks)
+            table.add_row(
+                str(progress["array_id"]),
+                str(progress["name"]),
+                str(progress["done"]),
+                str(progress["running"]),
+                str(progress["pending"]),
+                str(progress["failed"]),
+                str(total),
+                f"{bar} {fraction:>5.1%}",
+            )
+        if len(arrays) > 4:
+            table.add_row(
+                f"+{len(arrays) - 4} more", "", "", "", "", "", "", ""
+            )
+        content.update(table)
+
     def _filters_enabled(self) -> bool:
         return bool(self.job_filter_user or self.job_filter_prefix)
 
@@ -685,7 +858,7 @@ class SlurmDashboard(App):
             prefix_matches = True
 
             if user_filter:
-                user_matches = str(job.get("user", "")).casefold() == user_filter
+                user_matches = user_filter in str(job.get("user", "")).casefold()
 
             if prefix_filter:
                 job_name = str(job.get("name", "")).casefold()
@@ -702,7 +875,7 @@ class SlurmDashboard(App):
 
         tokens = []
         if self.job_filter_user:
-            tokens.append(f"U={self.job_filter_user}")
+            tokens.append(f"U~={self.job_filter_user}")
         if self.job_filter_prefix:
             tokens.append(f"N^={self.job_filter_prefix}")
         filter_text = " ".join(tokens)
@@ -825,9 +998,19 @@ class SlurmDashboard(App):
         self.last_refresh_time = time.time()
 
         nodes, theo, real = get_cluster_stats()
-        jobs = _dedupe_jobs_by_id(get_job_stats())
-        total_jobs = len(jobs)
-        jobs = self._filter_jobs(jobs)
+        all_jobs = _dedupe_jobs_by_id(get_job_stats())
+        current_user = getpass.getuser()
+        array_job_ids = {
+            match.group("base")
+            for job in all_jobs
+            if str(job.get("user", "")) == current_user
+            and (match := ARRAY_JOB_ID_PATTERN.fullmatch(str(job.get("id", ""))))
+        }
+        array_progress = get_array_progress(array_job_ids)
+        self._update_workload_panel(all_jobs, array_progress)
+
+        total_jobs = len(all_jobs)
+        jobs = self._filter_jobs(all_jobs)
         visible_jobs = len(jobs)
 
         self.query_one(ClusterBars).update_bars(theo, real)
