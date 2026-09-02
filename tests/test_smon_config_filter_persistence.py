@@ -7,7 +7,7 @@ try:
 except ImportError:
     import tomli as tomllib
 
-from smon_config import DASHBOARD_TITLE, SmonConfig, save_filter_state
+from smon_config import DASHBOARD_VERSION, SmonConfig, save_filter_state
 from smon_version import SMON_VERSION
 
 
@@ -33,4 +33,4 @@ def test_visible_version_matches_project_version():
     project = tomllib.loads(project_file.read_text(encoding="utf-8"))
 
     assert SMON_VERSION == project["project"]["version"]
-    assert DASHBOARD_TITLE.endswith(f"v{SMON_VERSION}")
+    assert DASHBOARD_VERSION == f"v{SMON_VERSION}"

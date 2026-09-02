@@ -7,6 +7,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-09-02
+
+### Fixed
+- Keep the version visible at narrow terminal widths by placing it beside the cluster
+  hostname instead of in the truncation-prone title column.
+
 ## [0.5.2] - 2026-09-02
 
 ### Changed
@@ -117,7 +123,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Initial `smon` release.
 
-[Unreleased]: https://github.com/RuHae/smon/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/RuHae/smon/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/RuHae/smon/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/RuHae/smon/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/RuHae/smon/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/RuHae/smon/compare/v0.4.2...v0.5.0

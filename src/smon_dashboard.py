@@ -26,6 +26,7 @@ from smon_config import (
     CLUSTER_NAME,
     CONFIG,
     DASHBOARD_TITLE,
+    DASHBOARD_VERSION,
     save_filter_state,
 )
 from smon_screens import (
@@ -349,7 +350,10 @@ class Branding(Static):
         grid.add_column(justify="center", ratio=1)
         grid.add_column(justify="right", ratio=1)
         title = Text(f" {DASHBOARD_TITLE}", style=ACTIVE_COLOR_SCHEME["brand_title"])
-        cluster = Text(f"🖥  {CLUSTER_NAME}", style=ACTIVE_COLOR_SCHEME["brand_cluster"])
+        cluster = Text(
+            f"🖥  {CLUSTER_NAME} · {DASHBOARD_VERSION}",
+            style=ACTIVE_COLOR_SCHEME["brand_cluster"],
+        )
         clock = Text(
             f"{datetime.now().strftime('%H:%M:%S')} ",
             style=ACTIVE_COLOR_SCHEME["brand_clock"],

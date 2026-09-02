@@ -17,7 +17,8 @@ except ImportError:
         tomllib = None  # type: ignore
 
 
-DASHBOARD_TITLE = f"🚀 HPC CLUSTER MONITOR v{SMON_VERSION}"
+DASHBOARD_TITLE = "🚀 HPC CLUSTER MONITOR"
+DASHBOARD_VERSION = f"v{SMON_VERSION}"
 
 # Minimum refresh interval enforced for cluster policy compliance
 MIN_REFRESH_INTERVAL = 120

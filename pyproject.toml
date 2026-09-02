@@ -1,6 +1,6 @@
 [project]
 name = "smon"
-version = "0.5.2"
+version = "0.5.3"
 description = "smon: A TUI dashboard for Slurm-managed HPC clusters."
 readme = "README.md"
 requires-python = ">=3.10"
