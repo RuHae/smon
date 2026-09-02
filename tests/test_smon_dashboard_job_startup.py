@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import getpass
 
 import smon_dashboard
 from smon_dashboard import SlurmDashboard, _build_workload_stats, _dedupe_jobs_by_id
@@ -93,11 +94,46 @@ def test_filter_enter_applies_without_opening_job_details(monkeypatch):
             assert not isinstance(app.screen, JobDetailScreen)
             assert app.job_filter_user == "28cox"
 
+            current_user = getpass.getuser()
+            jobs = [
+                {
+                    "id": f"{288800 + index}_0",
+                    "user": current_user,
+                    "name": f"array-{index}",
+                    "state": "PENDING",
+                    "gpu": "2",
+                }
+                for index in range(7)
+            ]
+            progress = [
+                {
+                    "array_id": str(288800 + index),
+                    "done": index,
+                    "running": 1,
+                    "pending": 6 - index,
+                    "failed": 0,
+                    "other": 0,
+                    "total": 7,
+                }
+                for index in range(7)
+            ]
+            app._update_workload_panel(jobs, progress)
+            workload_table = app.query_one("#workload_table")
+            assert workload_table.row_count == 7
+
+            await pilot.press("3")
+            assert workload_table.has_focus
+            assert workload_table.cursor_row == 0
+            await pilot.press("j")
+            assert workload_table.cursor_row == 1
+
             await pilot.press("w")
             assert app.workload_collapsed
             assert app.has_class("-workload-collapsed")
-            await pilot.press("w")
+            assert app.query_one("#job_table").has_focus
+            await pilot.press("3")
             assert not app.workload_collapsed
+            assert workload_table.has_focus
 
     asyncio.run(exercise())
 

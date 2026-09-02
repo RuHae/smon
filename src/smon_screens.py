@@ -328,16 +328,17 @@ class ShortcutHelpScreen(ModalScreen):
                 normal_table = make_table(
                     "Normal Mode",
                     [
-                        ("j / k", "Move down/up in the focused table."),
+                        ("j / k", "Move down/up in any focused table."),
                         (
                             "h / l",
                             "Scroll jobs table left/right (when Jobs pane is focused).",
                         ),
                         ("Shift+Left / Shift+H", "Focus Nodes pane."),
                         ("Shift+Right / Shift+L", "Focus Jobs pane."),
+                        ("1 / 2 / 3", "Focus Nodes / Jobs / My Workload."),
                         ("r", "Manual refresh (reload data from Slurm)."),
                         ("c", "Toggle compact jobs view."),
-                        ("w", "Minimize/restore the My Workload panel."),
+                        ("w", "Minimize/restore the scrollable My Workload panel."),
                         ("/", "Open job filter dialog (user and name prefix)."),
                         ("z", "Clear all active job filters."),
                         ("x / Delete", "Kill selected job."),

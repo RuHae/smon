@@ -7,6 +7,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-09-02
+
+### Changed
+- Replace the capped My Workload preview with a focusable, vertically scrollable table
+  showing every active array.
+- Add direct `1`, `2`, and `3` shortcuts for focusing Nodes, Jobs, and My Workload,
+  avoiding terminal-dependent Shift key combinations.
+
+### Fixed
+- Make the previously hidden arrays behind `+N more` reachable with `j`/`k` scrolling.
+
 ## [0.5.3] - 2026-09-02
 
 ### Fixed
@@ -123,7 +134,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Initial `smon` release.
 
-[Unreleased]: https://github.com/RuHae/smon/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/RuHae/smon/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/RuHae/smon/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/RuHae/smon/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/RuHae/smon/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/RuHae/smon/compare/v0.5.0...v0.5.1

@@ -176,14 +176,13 @@ def _build_dashboard_css() -> str:
         color: __PANE_HEADER_FG__;
     }
 
-    #workload-content {
+    #workload_table {
         width: 100%;
         height: 1fr;
-        padding: 0 1;
     }
 
     SlurmDashboard.-workload-collapsed #workload-pane { height: 1; }
-    SlurmDashboard.-workload-collapsed #workload-content { display: none; }
+    SlurmDashboard.-workload-collapsed #workload_table { display: none; }
 
     .pane-header { text-align: center; text-style: bold; background: __PANE_HEADER_BG__; color: __PANE_HEADER_FG__; padding: 0 1; width: 100%; border-bottom: solid __PANE_ACCENT__; }
     DataTable { height: 100%; scrollbar-gutter: stable; }
@@ -436,6 +435,9 @@ class SlurmDashboard(App):
         ("z", "clear_filters", "Clear Filter"),
         ("m", "toggle_mode", "Mode"),
         ("w", "toggle_workload", "Workload"),
+        ("1", "focus_nodes_pane", "Nodes"),
+        ("2", "focus_jobs_pane", "Jobs"),
+        ("3", "focus_workload", "My Workload"),
         ("question_mark", "show_help", "Help"),
         ("x", "kill_job", "Kill Job"),
         ("X", "kill_all_jobs", "Kill All"),
@@ -471,7 +473,7 @@ class SlurmDashboard(App):
                     yield DataTable(id="job_table", cursor_type="row")
         with Vertical(id="workload-pane"):
             yield Label("▼ MY WORKLOAD", id="workload-header")
-            yield Static(id="workload-content")
+            yield DataTable(id="workload_table", cursor_type="row")
         with Horizontal(id="statusline"):
             yield Static(" NORMAL ", id="mode-pill")
             yield Static(" FILTER: OFF ", id="filter-pill")
@@ -486,6 +488,12 @@ class SlurmDashboard(App):
         node_table = self.query_one("#node_table", DataTable)
         node_table.add_columns("Node", "State", "CPU", "Mem", "GPU")
         node_table.zebra_stripes = True
+
+        workload_table = self.query_one("#workload_table", DataTable)
+        workload_table.add_columns(
+            "Array", "Name", "Done", "Running", "Pending", "Failed", "Total", "Progress"
+        )
+        workload_table.zebra_stripes = True
 
         # Ensure the jobs table has a stable schema before first render.
         self.rebuild_job_columns()
@@ -603,6 +611,22 @@ class SlurmDashboard(App):
 
         job_table = self.query_one("#job_table", DataTable)
         node_table = self.query_one("#node_table", DataTable)
+        workload_table = self.query_one("#workload_table", DataTable)
+
+        if workload_table.has_focus:
+            if event.key == "j":
+                workload_table.action_cursor_down()
+                event.stop()
+            elif event.key == "k":
+                workload_table.action_cursor_up()
+                event.stop()
+            elif event.key in ("h", "left"):
+                workload_table.scroll_left(animate=False)
+                event.stop()
+            elif event.key in ("l", "right"):
+                workload_table.scroll_right(animate=False)
+                event.stop()
+            return
 
         if job_table.has_focus:
             wrapper = self.query_one("#job-scroll-wrapper")
@@ -779,6 +803,9 @@ class SlurmDashboard(App):
     def action_toggle_workload(self) -> None:
         self.workload_collapsed = not self.workload_collapsed
         self.set_class(self.workload_collapsed, "-workload-collapsed")
+        workload_table = self.query_one("#workload_table", DataTable)
+        if self.workload_collapsed and workload_table.has_focus:
+            self.action_focus_jobs_pane()
         self._update_workload_header()
 
     @on(events.Click, "#workload-header")
@@ -790,7 +817,7 @@ class SlurmDashboard(App):
         marker = "▶" if self.workload_collapsed else "▼"
         summary = f" · {self._workload_summary_text}" if self._workload_summary_text else ""
         self.query_one("#workload-header", Label).update(
-            f"{marker} MY WORKLOAD{summary} · w/click"
+            f"{marker} MY WORKLOAD{summary} · 3 focus · w toggle"
         )
 
     def _update_workload_panel(
@@ -806,25 +833,20 @@ class SlurmDashboard(App):
         )
         self._update_workload_header()
 
-        content = self.query_one("#workload-content", Static)
+        table = self.query_one("#workload_table", DataTable)
+        selected_array = None
+        if table.row_count and table.cursor_row >= 0:
+            selected_array = str(table.get_row_at(table.cursor_row)[0])
+        table.clear()
         arrays = list(stats["arrays"])
         if not arrays:
-            content.update("No active array jobs with accounting data.")
+            table.add_row(
+                "—", "No active array jobs with accounting data.", "", "", "", "", "", ""
+            )
             return
 
-        table = RichTable.grid(expand=True, padding=(0, 2))
-        table.add_column("Array", style="bold cyan")
-        table.add_column("Name", ratio=1)
-        table.add_column("Done", justify="right", style="green")
-        table.add_column("Running", justify="right")
-        table.add_column("Pending", justify="right", style="yellow")
-        table.add_column("Failed", justify="right", style="red")
-        table.add_column("Total", justify="right")
-        table.add_column("Progress", ratio=1)
-        table.add_row(
-            "Array", "Name", "Done", "Running", "Pending", "Failed", "Total", "Progress"
-        )
-        for progress in arrays[:4]:
+        selected_row = 0
+        for row_index, progress in enumerate(arrays):
             total = int(progress["total"])
             terminal = int(progress["done"]) + int(progress["failed"])
             fraction = terminal / total if total else 0.0
@@ -840,11 +862,9 @@ class SlurmDashboard(App):
                 str(total),
                 f"{bar} {fraction:>5.1%}",
             )
-        if len(arrays) > 4:
-            table.add_row(
-                f"+{len(arrays) - 4} more", "", "", "", "", "", "", ""
-            )
-        content.update(table)
+            if str(progress["array_id"]) == selected_array:
+                selected_row = row_index
+        table.move_cursor(row=selected_row)
 
     def _filters_enabled(self) -> bool:
         return bool(self.job_filter_user or self.job_filter_prefix)
@@ -952,6 +972,13 @@ class SlurmDashboard(App):
             self.pane_mode = "split"
             self.apply_pane_layout()
         self.query_one("#job_table", DataTable).focus()
+
+    def action_focus_workload(self):
+        if self.workload_collapsed:
+            self.workload_collapsed = False
+            self.set_class(False, "-workload-collapsed")
+            self._update_workload_header()
+        self.query_one("#workload_table", DataTable).focus()
 
     def action_narrow_nodes_pane(self):
         if self.pane_mode != "split":

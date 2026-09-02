@@ -1,1 +1,1 @@
-SMON_VERSION = "0.5.3"
+SMON_VERSION = "0.5.4"

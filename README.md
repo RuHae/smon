@@ -76,8 +76,9 @@ SMON_FAKE_DATA=1 uv run python src/main.py
 | `h` / `l` | Horizontal scroll in jobs table |
 | `Shift+Left` / `Shift+H` | Focus Nodes pane |
 | `Shift+Right` / `Shift+L` | Focus Jobs pane |
+| `1` / `2` / `3` | Focus Nodes / Jobs / My Workload |
 | `c` | Toggle compact jobs table |
-| `w` | Minimize/restore My Workload panel |
+| `w` | Minimize/restore scrollable My Workload panel |
 | `/` | Open job filter dialog |
 | `z` | Clear all active job filters |
 | `x` / `Delete` | Kill selected job (with confirmation) |
