@@ -98,7 +98,7 @@ def get_cluster_stats():
 def get_job_stats():
     cmd = (
         'squeue --all --format="'
-        "%.8i %.8u %.11T %.11M %.12L %.10Q %.4D %.40R %.20b %.40j "
+        "%i %.8u %.11T %.11M %.12L %.10Q %.4D %.40R %.20b %.40j "
         "%.6C %.8m %.10P %.20a %.10q %.20V %.20E"
         '" --sort=T'
     )

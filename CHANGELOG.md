@@ -7,6 +7,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-02
+
+### Fixed
+- Preserve complete Slurm job IDs instead of truncating them to eight characters. This
+  prevents array tasks with two-digit indices from being collapsed as duplicates in the
+  active-jobs table.
+
 ## [0.5.0] - 2026-04-16
 
 ### Added
@@ -93,7 +100,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - Initial `smon` release.
 
-[Unreleased]: https://github.com/RuHae/smon/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/RuHae/smon/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/RuHae/smon/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/RuHae/smon/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/RuHae/smon/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/RuHae/smon/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/RuHae/smon/compare/v0.3.0...v0.4.0

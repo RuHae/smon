@@ -40,6 +40,20 @@ def _build_squeue_output_with_same_id_different_submit() -> str:
     return "\n".join([header, *rows])
 
 
+def _build_squeue_output_with_long_array_task_ids() -> str:
+    header = (
+        "JOBID USER STATE TIME LEFT PRIO NODES REASON GRES NAME CPU MEM PART "
+        "ACCOUNT QOS SUBMIT DEP"
+    )
+    rows = [
+        f"288764_{task} user01 RUNNING 01:00:00 12:00:00 100 1 cn01 "
+        "gres/gpu:h100:2 train 32 256G all acct01 normal "
+        "2026-09-02T14:48:45 (null)"
+        for task in (1, 10, 11, 12, 13, 14, 15)
+    ]
+    return "\n".join([header, *rows])
+
+
 def test_get_job_stats_parses_typed_and_untyped_gpu_counts(monkeypatch):
     monkeypatch.setattr(slurm_backend, "run_slurm_command", lambda _cmd: _build_squeue_output())
 
@@ -83,3 +97,26 @@ def test_get_job_stats_deduplicates_same_job_id_with_changed_submit(monkeypatch)
 
     assert len(jobs) == 2
     assert [job["id"] for job in jobs] == ["100001", "100002"]
+
+
+def test_get_job_stats_preserves_long_array_task_ids(monkeypatch):
+    def fake_run(cmd: str) -> str:
+        # A precision on %i is a maximum width in squeue.  %.8i truncates
+        # 288764_10 through 288764_15 to the same apparent ID, 288764_1.
+        assert 'squeue --all --format="%i ' in cmd
+        assert "%.8i" not in cmd
+        return _build_squeue_output_with_long_array_task_ids()
+
+    monkeypatch.setattr(slurm_backend, "run_slurm_command", fake_run)
+
+    jobs = slurm_backend.get_job_stats()
+
+    assert [job["id"] for job in jobs] == [
+        "288764_1",
+        "288764_10",
+        "288764_11",
+        "288764_12",
+        "288764_13",
+        "288764_14",
+        "288764_15",
+    ]
